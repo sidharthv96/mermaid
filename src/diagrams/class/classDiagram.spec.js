@@ -62,7 +62,7 @@ describe('class diagram, ', function () {
       parser.parse(str);
     });
 
-    it('should handle visibility for methods and members', function() {
+    it('should handle visibility for methods and members', function () {
       const str =
         'classDiagram\n' +
         'class TestClass\n' +
@@ -76,7 +76,7 @@ describe('class diagram, ', function () {
       parser.parse(str);
     });
 
-    it('should handle generic class', function() {
+    it('should handle generic class', function () {
       const str =
         'classDiagram\n' +
         'class Car~T~\n' +
@@ -87,7 +87,7 @@ describe('class diagram, ', function () {
       parser.parse(str);
     });
 
-    it('should handle generic class with a literal name', function() {
+    it('should handle generic class with a literal name', function () {
       const str =
         'classDiagram\n' +
         'class `Car`~T~\n' +
@@ -98,7 +98,7 @@ describe('class diagram, ', function () {
       parser.parse(str);
     });
 
-    it('should break when another `{`is encountered before closing the first one while defining generic class with brackets', function() {
+    it('should break when another `{`is encountered before closing the first one while defining generic class with brackets', function () {
       const str =
         'classDiagram\n' +
         'class Dummy_Class~T~ {\n' +
@@ -111,17 +111,16 @@ describe('class diagram, ', function () {
         '   flightNumber : Integer\n' +
         '   departureTime : Date\n' +
         '}';
-      let testPased = false;
+      let testPassed = false;
       try {
         parser.parse(str);
       } catch (error) {
-        console.log(error.name);
-        testPased = true;
+        testPassed = true;
       }
-      expect(testPased).toBe(true);
+      expect(testPassed).toBe(true);
     });
 
-    it('should break when EOF is encountered before closing the first `{` while defining generic class with brackets', function() {
+    it('should break when EOF is encountered before closing the first `{` while defining generic class with brackets', function () {
       const str =
         'classDiagram\n' +
         'class Dummy_Class~T~ {\n' +
@@ -130,17 +129,16 @@ describe('class diagram, ', function () {
         '}\n' +
         '\n' +
         'class Dummy_Class {\n';
-      let testPased = false;
+      let testPassed = false;
       try {
         parser.parse(str);
       } catch (error) {
-        console.log(error.name);
-        testPased = true;
+        testPassed = true;
       }
-      expect(testPased).toBe(true);
+      expect(testPassed).toBe(true);
     });
 
-    it('should handle generic class with brackets', function() {
+    it('should handle generic class with brackets', function () {
       const str =
         'classDiagram\n' +
         'class Dummy_Class~T~ {\n' +
@@ -156,7 +154,7 @@ describe('class diagram, ', function () {
       parser.parse(str);
     });
 
-    it('should handle generic class with brackets and a literal name', function() {
+    it('should handle generic class with brackets and a literal name', function () {
       const str =
         'classDiagram\n' +
         'class `Dummy_Class`~T~ {\n' +
@@ -172,7 +170,7 @@ describe('class diagram, ', function () {
       parser.parse(str);
     });
 
-    it('should handle class definitions', function() {
+    it('should handle class definitions', function () {
       const str =
         'classDiagram\n' +
         'class Car\n' +
@@ -287,7 +285,7 @@ describe('class diagram, ', function () {
       parser.parse(str);
     });
 
-    it('should handle comments at the start', function() {
+    it('should handle comments at the start', function () {
       const str = `%% Comment
         classDiagram
         class Class1 {
@@ -299,7 +297,7 @@ describe('class diagram, ', function () {
       parser.parse(str);
     });
 
-    it('should handle comments at the end', function() {
+    it('should handle comments at the end', function () {
       const str = `classDiagram
 class Class1 {
 int : test
@@ -314,7 +312,7 @@ foo()
       parser.parse(str);
     });
 
-    it('should handle comments at the end no trailing newline', function() {
+    it('should handle comments at the end no trailing newline', function () {
       const str = `classDiagram
 class Class1 {
 int : test
@@ -327,7 +325,7 @@ foo()
       parser.parse(str);
     });
 
-    it('should handle a comment with multiple line feeds', function() {
+    it('should handle a comment with multiple line feeds', function () {
       const str = `classDiagram
 
 
@@ -343,7 +341,7 @@ foo()
       parser.parse(str);
     });
 
-    it('should handle a comment with mermaid class diagram code in them', function() {
+    it('should handle a comment with mermaid class diagram code in them', function () {
       const str = `classDiagram
 %% Comment Class01 <|-- Class02
 class Class1 {
@@ -385,7 +383,7 @@ foo()
       parser.parse(str);
     });
 
-    it('should handle click statement with click and href link', function() {
+    it('should handle click statement with click and href link', function () {
       const str =
         'classDiagram\n' +
         'class Class1 {\n' +
@@ -415,7 +413,7 @@ foo()
       parser.parse(str);
     });
 
-    it('should handle click statement with click and href link and tooltip', function() {
+    it('should handle click statement with click and href link and tooltip', function () {
       const str =
         'classDiagram\n' +
         'class Class1 {\n' +
@@ -445,7 +443,7 @@ foo()
       parser.parse(str);
     });
 
-    it('should handle click statement with click and call callback', function() {
+    it('should handle click statement with click and call callback', function () {
       const str =
         'classDiagram\n' +
         'class Class1 {\n' +
@@ -475,7 +473,7 @@ foo()
       parser.parse(str);
     });
 
-    it('should handle click statement with click and call callback and tooltip', function() {
+    it('should handle click statement with click and call callback and tooltip', function () {
       const str =
         'classDiagram\n' +
         'class Class1 {\n' +
@@ -544,7 +542,35 @@ foo()
       expect(relations[0].relation.lineType).toBe(classDb.lineType.LINE);
     });
 
-    it('should handle relation definitions AGGREGATION and dotted line', function() {
+    it('should handle accTitle and accDescr', function () {
+      const str = `classDiagram
+            accTitle: My Title
+            accDescr: My Description
+
+            Class01 <|-- Class02
+            `;
+
+      parser.parse(str);
+      expect(parser.yy.getAccTitle()).toBe('My Title');
+      expect(parser.yy.getAccDescription()).toBe('My Description');
+    });
+    it('should handle accTitle and multiline accDescr', function () {
+      const str = `classDiagram
+            accTitle: My Title
+            accDescr {
+              This is mu multi
+              line description
+            }
+
+            Class01 <|-- Class02
+            `;
+
+      parser.parse(str);
+      expect(parser.yy.getAccTitle()).toBe('My Title');
+      expect(parser.yy.getAccDescription()).toBe('This is mu multi\nline description');
+    });
+
+    it('should handle relation definitions AGGREGATION and dotted line', function () {
       const str = 'classDiagram\n' + 'Class01 o.. Class02';
 
       parser.parse(str);
@@ -738,7 +764,7 @@ foo()
       expect(testClass.methods[0]).toBe('someMethod()$');
     });
 
-    it('should associate link and css appropriately', function() {
+    it('should associate link and css appropriately', function () {
       const str =
         'classDiagram\n' +
         'class Class1\n' +
@@ -747,12 +773,12 @@ foo()
       parser.parse(str);
 
       const testClass = parser.yy.getClass('Class1');
-      expect(testClass.link).toBe('about:blank'); //('google.com'); security needs to be set to 'loose' for this to work right
+      expect(testClass.link).toBe('google.com');
       expect(testClass.cssClasses.length).toBe(1);
       expect(testClass.cssClasses[0]).toBe('clickable');
     });
 
-    it('should associate click and href link and css appropriately', function() {
+    it('should associate click and href link and css appropriately', function () {
       const str =
         'classDiagram\n' +
         'class Class1\n' +
@@ -761,12 +787,12 @@ foo()
       parser.parse(str);
 
       const testClass = parser.yy.getClass('Class1');
-      expect(testClass.link).toBe('about:blank'); //('google.com'); security needs to be set to 'loose' for this to work right
+      expect(testClass.link).toBe('google.com');
       expect(testClass.cssClasses.length).toBe(1);
       expect(testClass.cssClasses[0]).toBe('clickable');
     });
 
-    it('should associate link with tooltip', function() {
+    it('should associate link with tooltip', function () {
       const str =
         'classDiagram\n' +
         'class Class1\n' +
@@ -775,13 +801,13 @@ foo()
       parser.parse(str);
 
       const testClass = parser.yy.getClass('Class1');
-      expect(testClass.link).toBe('about:blank'); //('google.com'); security needs to be set to 'loose' for this to work right
+      expect(testClass.link).toBe('google.com');
       expect(testClass.tooltip).toBe('A tooltip');
       expect(testClass.cssClasses.length).toBe(1);
       expect(testClass.cssClasses[0]).toBe('clickable');
     });
 
-    it('should associate click and href link with tooltip', function() {
+    it('should associate click and href link with tooltip', function () {
       const str =
         'classDiagram\n' +
         'class Class1\n' +
@@ -790,7 +816,7 @@ foo()
       parser.parse(str);
 
       const testClass = parser.yy.getClass('Class1');
-      expect(testClass.link).toBe('about:blank'); //('google.com'); security needs to be set to 'loose' for this to work right
+      expect(testClass.link).toBe('google.com');
       expect(testClass.tooltip).toBe('A tooltip');
       expect(testClass.cssClasses.length).toBe(1);
       expect(testClass.cssClasses[0]).toBe('clickable');
@@ -860,7 +886,7 @@ foo()
       expect(classDb.setClickEvent).toHaveBeenCalledWith('Class1', 'functionCall');
     });
 
-    it('should associate click and call callback appropriately', function() {
+    it('should associate click and call callback appropriately', function () {
       spyOn(classDb, 'setClickEvent');
       const str =
         'classDiagram\n' +

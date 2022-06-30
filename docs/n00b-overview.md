@@ -53,7 +53,7 @@ It is a relatively straightforward solution to a significant hurdle with the sof
 
 **Diagramming and charting is a large waste of developer's time, but not having diagrams ruins productivity.**
 
-Mermaid solves this by reducing the timeand effort required to create diagrams and charts.
+Mermaid solves this by reducing the time and effort required to create diagrams and charts.
 
 Because, the text base for the diagrams allows it to be updated easily. Also, it can be made part of production scripts (and other pieces of code). So less time is spent on documenting, as a separate task.
 
@@ -64,6 +64,6 @@ Being based on markdown, Mermaid can be used, not only by accomplished front-end
 In fact one can pick up the syntax for it quite easily from the examples given and there are many tutorials available in the internet.
 
 ## Mermaid is for everyone.
-Video [Tutorials](https://mermaid-js.github.io/mermaid/#/./Tutorials) are also available for the mermaid [live editor](https://mermaid-js.github.io/mermaid-live-editor/).
+Video [Tutorials](https://mermaid-js.github.io/mermaid/#/./Tutorials) are also available for the mermaid [live editor](https://mermaid.live/).
 
 Alternatively you can use Mermaid [Plug-Ins](https://mermaid-js.github.io/mermaid/#/./integrations), with tools you already use, like Google Docs. 

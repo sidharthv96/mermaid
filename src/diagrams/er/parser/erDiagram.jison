@@ -2,8 +2,18 @@
 
 %options case-insensitive
 %x open_directive type_directive arg_directive block
+%x acc_title
+%x acc_descr
+%x acc_descr_multiline
 
 %%
+accTitle\s*":"\s*                                               { this.begin("acc_title");return 'acc_title'; }
+<acc_title>(?!\n|;|#)*[^\n]*                                    { this.popState(); return "acc_title_value"; }
+accDescr\s*":"\s*                                               { this.begin("acc_descr");return 'acc_descr'; }
+<acc_descr>(?!\n|;|#)*[^\n]*                                    { this.popState(); return "acc_descr_value"; }
+accDescr\s*"{"\s*                                { this.begin("acc_descr_multiline");}
+<acc_descr_multiline>[\}]                       { this.popState(); }
+<acc_descr_multiline>[^\}]*                     return "acc_descr_multiline_value";
 \%\%\{                                                          { this.begin('open_directive'); return 'open_directive'; }
 <open_directive>((?:(?!\}\%\%)[^:.])*)                          { this.begin('type_directive'); return 'type_directive'; }
 <type_directive>":"                                             { this.popState(); this.begin('arg_directive'); return ':'; }
@@ -18,7 +28,7 @@
 "erDiagram"                     return 'ER_DIAGRAM';
 "{"                             { this.begin("block"); return 'BLOCK_START'; }
 <block>\s+                      /* skip whitespace in block */
-<block>(?:PK)|(?:FK)            return 'ATTRIBUTE_KEY'
+<block>\b((?:PK)|(?:FK))\b      return 'ATTRIBUTE_KEY'
 <block>[A-Za-z][A-Za-z0-9\-_]*  return 'ATTRIBUTE_WORD'
 <block>\"[^"]*\"                return 'COMMENT';
 <block>[\n]+                    /* nothing */
@@ -84,10 +94,15 @@ statement
       }
     | entityName BLOCK_START BLOCK_STOP { yy.addEntity($1); }
     | entityName { yy.addEntity($1); }
+    | title title_value  { $$=$2.trim();yy.setAccTitle($$); }
+    | acc_title acc_title_value  { $$=$2.trim();yy.setAccTitle($$); }
+    | acc_descr acc_descr_value  { $$=$2.trim();yy.setAccDescription($$); }
+    | acc_descr_multiline_value { $$=$1.trim();yy.setAccDescription($$); }
     ;
 
 entityName
     : 'ALPHANUM' { $$ = $1; /*console.log('Entity: ' + $1);*/ }
+    | 'ALPHANUM' '.' entityName { $$ = $1 + $2 + $3; }
     ;
 
 attributes
@@ -98,8 +113,8 @@ attributes
 attribute
     : attributeType attributeName { $$ = { attributeType: $1, attributeName: $2 }; }
     | attributeType attributeName attributeKeyType { $$ = { attributeType: $1, attributeName: $2, attributeKeyType: $3 }; }
-    | attributeType attributeName COMMENT { $$ = { attributeType: $1, attributeName: $2, attributeComment: $3 }; }
-    | attributeType attributeName attributeKeyType COMMENT { $$ = { attributeType: $1, attributeName: $2, attributeKeyType: $3, attributeComment: $4 }; }
+    | attributeType attributeName attributeComment { $$ = { attributeType: $1, attributeName: $2, attributeComment: $3 }; }
+    | attributeType attributeName attributeKeyType attributeComment { $$ = { attributeType: $1, attributeName: $2, attributeKeyType: $3, attributeComment: $4 }; }
     ;
 
 attributeType
@@ -112,6 +127,10 @@ attributeName
 
 attributeKeyType
     : ATTRIBUTE_KEY { $$=$1; }
+    ;
+
+attributeComment
+    : COMMENT { $$=$1.replace(/"/g, ''); }
     ;
 
 relSpec

@@ -1,6 +1,4 @@
-/**
- * Decorates with functions required by mermaids dagre-wrapper.
- */
+/** Decorates with functions required by mermaids dagre-wrapper. */
 import { log } from '../logger';
 import graphlib from 'graphlib';
 
@@ -145,7 +143,8 @@ export const extractDecendants = (id, graph) => {
 /**
  * Validates the graph, checking that all parent child relation points to existing nodes and that
  * edges between nodes also ia correct. When not correct the function logs the discrepancies.
- * @param {graphlib graph} g
+ *
+ * @param graph
  */
 export const validate = (graph) => {
   const edges = graph.edges();
@@ -165,8 +164,9 @@ export const validate = (graph) => {
 
 /**
  * Finds a child that is not a cluster. When faking a edge between a node and a cluster.
- * @param {Finds a } id
- * @param {*} graph
+ *
+ * @param {Finds a} id
+ * @param {any} graph
  */
 export const findNonClusterChild = (id, graph) => {
   // const node = graph.node(id);
@@ -210,7 +210,7 @@ export const adjustClustersAndEdges = (graph, depth) => {
   } else {
     log.debug('Opting in, graph ');
   }
-  // Go through the nodes and for each cluster found, save a replacment node, this can be used when
+  // Go through the nodes and for each cluster found, save a replacement node, this can be used when
   // faking a link to a cluster
   graph.nodes().forEach(function (id) {
     const children = graph.children(id);
@@ -257,7 +257,7 @@ export const adjustClustersAndEdges = (graph, depth) => {
   });
 
   // For clusters with incoming and/or outgoing edges translate those edges to a real node
-  // in the cluster inorder to fake the edge
+  // in the cluster in order to fake the edge
   graph.edges().forEach(function (e) {
     const edge = graph.edge(e);
     log.warn('Edge ' + e.v + ' -> ' + e.w + ': ' + JSON.stringify(e));
@@ -277,7 +277,33 @@ export const adjustClustersAndEdges = (graph, depth) => {
       ' --- ',
       clusterDb[e.w]
     );
-    if (clusterDb[e.v] || clusterDb[e.w]) {
+    if (clusterDb[e.v] && clusterDb[e.w] && clusterDb[e.v] === clusterDb[e.w]) {
+      log.warn('Fixing and trixing link to self - removing XXX', e.v, e.w, e.name);
+      log.warn('Fixing and trixing - removing XXX', e.v, e.w, e.name);
+      v = getAnchorId(e.v);
+      w = getAnchorId(e.w);
+      graph.removeEdge(e.v, e.w, e.name);
+      const specialId = e.w + '---' + e.v;
+      graph.setNode(specialId, {
+        domId: specialId,
+        id: specialId,
+        labelStyle: '',
+        labelText: edge.label,
+        padding: 0,
+        shape: 'labelRect',
+        style: '',
+      });
+      const edge1 = JSON.parse(JSON.stringify(edge));
+      const edge2 = JSON.parse(JSON.stringify(edge));
+      edge1.label = '';
+      edge1.arrowTypeEnd = 'none';
+      edge2.label = '';
+      edge1.fromCluster = e.v;
+      edge2.toCluster = e.v;
+
+      graph.setEdge(v, specialId, edge1, e.name + '-cyclic-special');
+      graph.setEdge(specialId, w, edge2, e.name + '-cyclic-special');
+    } else if (clusterDb[e.v] || clusterDb[e.w]) {
       log.warn('Fixing and trixing - removing XXX', e.v, e.w, e.name);
       v = getAnchorId(e.v);
       w = getAnchorId(e.w);

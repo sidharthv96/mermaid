@@ -1,4 +1,6 @@
 import common from '../common/common';
+import { addFunction } from '../../interactionDb';
+import { sanitizeUrl } from '@braintree/sanitize-url';
 
 export const drawRect = function (elem, rectData) {
   const rectElem = elem.append('rect');
@@ -18,13 +20,26 @@ export const drawRect = function (elem, rectData) {
   return rectElem;
 };
 
-const sanitizeUrl = function (s) {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/javascript:/g, '');
-};
+// const sanitizeUrl = function (s) {
+//   return s
+//     .replace(/&/g, '&amp;')
+//     .replace(/</g, '&lt;')
+//     .replace(/javascript:/g, '');
+// };
 
+const addPopupInteraction = (id, actorCnt) => {
+  addFunction(() => {
+    const arr = document.querySelectorAll(id);
+    // This will be the case when running in sandboxed mode
+    if (arr.length === 0) return;
+    arr[0].addEventListener('mouseover', function () {
+      popupMenuUpFunc('actor' + actorCnt + '_popup');
+    });
+    arr[0].addEventListener('mouseout', function () {
+      popupMenuDownFunc('actor' + actorCnt + '_popup');
+    });
+  });
+};
 export const drawPopup = function (elem, actor, minMenuWidth, textAttrs, forceMenus) {
   if (actor.links === undefined || actor.links === null || Object.keys(actor.links).length === 0) {
     return { height: 0, width: 0 };
@@ -43,9 +58,7 @@ export const drawPopup = function (elem, actor, minMenuWidth, textAttrs, forceMe
   g.attr('id', 'actor' + actorCnt + '_popup');
   g.attr('class', 'actorPopupMenu');
   g.attr('display', displayValue);
-  g.attr('onmouseover', popupMenu('actor' + actorCnt + '_popup'));
-  g.attr('onmouseout', popdownMenu('actor' + actorCnt + '_popup'));
-
+  addPopupInteraction('#actor' + actorCnt + '_popup', actorCnt);
   var actorClass = '';
   if (typeof rectData.class !== 'undefined') {
     actorClass = ' ' + rectData.class;
@@ -123,6 +136,19 @@ export const popdownMenu = function (popid) {
   );
 };
 
+const popupMenuUpFunc = function (popupId) {
+  var pu = document.getElementById(popupId);
+  if (pu != null) {
+    pu.style.display = 'block';
+  }
+};
+
+const popupMenuDownFunc = function (popupId) {
+  var pu = document.getElementById(popupId);
+  if (pu != null) {
+    pu.style.display = 'none';
+  }
+};
 export const drawText = function (elem, textData) {
   let prevTextHeight = 0,
     textHeight = 0;
@@ -252,6 +278,14 @@ export const drawText = function (elem, textData) {
 };
 
 export const drawLabel = function (elem, txtObject) {
+  /**
+   * @param {any} x
+   * @param {any} y
+   * @param {any} width
+   * @param {any} height
+   * @param {any} cut
+   * @returns {any}
+   */
   function genPoints(x, y, width, height, cut) {
     return (
       x +
@@ -297,9 +331,10 @@ export const fixLifeLineHeights = (diagram, bounds) => {
 
 /**
  * Draws an actor in the diagram with the attached line
- * @param elem - The diagram we'll draw to.
- * @param actor - The actor to draw.
- * @param conf - drawText implementation discriminator object
+ *
+ * @param {any} elem - The diagram we'll draw to.
+ * @param {any} actor - The actor to draw.
+ * @param {any} conf - DrawText implementation discriminator object
  */
 const drawActorTypeParticipant = function (elem, actor, conf) {
   const center = actor.x + actor.width / 2;
@@ -321,9 +356,10 @@ const drawActorTypeParticipant = function (elem, actor, conf) {
 
     g = boxpluslineGroup.append('g');
     actor.actorCnt = actorCnt;
+
     if (actor.links != null) {
-      g.attr('onmouseover', popupMenu('actor' + actorCnt + '_popup'));
-      g.attr('onmouseout', popdownMenu('actor' + actorCnt + '_popup'));
+      g.attr('id', 'root-' + actorCnt);
+      addPopupInteraction('#root-' + actorCnt, actorCnt);
     }
   }
 
@@ -370,6 +406,7 @@ const drawActorTypeParticipant = function (elem, actor, conf) {
     actor.height = bounds.height;
     height = bounds.height;
   }
+
   return height;
 };
 
@@ -469,11 +506,12 @@ export const anchorElement = function (elem) {
 };
 /**
  * Draws an activation in the diagram
- * @param elem - element to append activation rect.
- * @param bounds - activation box bounds.
- * @param verticalPos - precise y cooridnate of bottom activation box edge.
- * @param conf - sequence diagram config object.
- * @param actorActivations - number of activations on the actor.
+ *
+ * @param {any} elem - Element to append activation rect.
+ * @param {any} bounds - Activation box bounds.
+ * @param {any} verticalPos - Precise y cooridnate of bottom activation box edge.
+ * @param {any} conf - Sequence diagram config object.
+ * @param {any} actorActivations - Number of activations on the actor.
  */
 export const drawActivation = function (elem, bounds, verticalPos, conf, actorActivations) {
   const rect = getNoteRect();
@@ -488,10 +526,12 @@ export const drawActivation = function (elem, bounds, verticalPos, conf, actorAc
 
 /**
  * Draws a loop in the diagram
- * @param elem - elemenet to append the loop to.
- * @param loopModel - loopModel of the given loop.
- * @param labelText - Text within the loop.
- * @param conf - diagrom configuration
+ *
+ * @param {any} elem - Elemenet to append the loop to.
+ * @param {any} loopModel - LoopModel of the given loop.
+ * @param {any} labelText - Text within the loop.
+ * @param {any} conf - Diagrom configuration
+ * @returns {any}
  */
 export const drawLoop = function (elem, loopModel, labelText, conf) {
   const {
@@ -588,8 +628,9 @@ export const drawLoop = function (elem, loopModel, labelText, conf) {
 
 /**
  * Draws a background rectangle
- * @param elem diagram (reference for bounds)
- * @param bounds shape of the rectangle
+ *
+ * @param {any} elem Diagram (reference for bounds)
+ * @param {any} bounds Shape of the rectangle
  */
 export const drawBackgroundRect = function (elem, bounds) {
   const rectElem = drawRect(elem, {
@@ -650,6 +691,8 @@ export const insertClockIcon = function (elem) {
 
 /**
  * Setup arrow head and define the marker. The result is appended to the svg.
+ *
+ * @param elem
  */
 export const insertArrowHead = function (elem) {
   elem
@@ -667,6 +710,8 @@ export const insertArrowHead = function (elem) {
 };
 /**
  * Setup arrow head and define the marker. The result is appended to the svg.
+ *
+ * @param {any} elem
  */
 export const insertArrowFilledHead = function (elem) {
   elem
@@ -683,6 +728,8 @@ export const insertArrowFilledHead = function (elem) {
 };
 /**
  * Setup node number. The result is appended to the svg.
+ *
+ * @param {any} elem
  */
 export const insertSequenceNumber = function (elem) {
   elem
@@ -702,6 +749,8 @@ export const insertSequenceNumber = function (elem) {
 };
 /**
  * Setup arrow head and define the marker. The result is appended to the svg.
+ *
+ * @param {any} elem
  */
 export const insertArrowCrossHead = function (elem) {
   const defs = elem.append('defs');
@@ -766,6 +815,15 @@ export const getNoteRect = function () {
 };
 
 const _drawTextCandidateFunc = (function () {
+  /**
+   * @param {any} content
+   * @param {any} g
+   * @param {any} x
+   * @param {any} y
+   * @param {any} width
+   * @param {any} height
+   * @param {any} textAttrs
+   */
   function byText(content, g, x, y, width, height, textAttrs) {
     const text = g
       .append('text')
@@ -776,6 +834,16 @@ const _drawTextCandidateFunc = (function () {
     _setTextAttrs(text, textAttrs);
   }
 
+  /**
+   * @param {any} content
+   * @param {any} g
+   * @param {any} x
+   * @param {any} y
+   * @param {any} width
+   * @param {any} height
+   * @param {any} textAttrs
+   * @param {any} conf
+   */
   function byTspan(content, g, x, y, width, height, textAttrs, conf) {
     const { actorFontSize, actorFontFamily, actorFontWeight } = conf;
 
@@ -805,6 +873,16 @@ const _drawTextCandidateFunc = (function () {
     }
   }
 
+  /**
+   * @param {any} content
+   * @param {any} g
+   * @param {any} x
+   * @param {any} y
+   * @param {any} width
+   * @param {any} height
+   * @param {any} textAttrs
+   * @param {any} conf
+   */
   function byFo(content, g, x, y, width, height, textAttrs, conf) {
     const s = g.append('switch');
     const f = s
@@ -831,6 +909,10 @@ const _drawTextCandidateFunc = (function () {
     _setTextAttrs(text, textAttrs);
   }
 
+  /**
+   * @param {any} toText
+   * @param {any} fromTextAttrsDict
+   */
   function _setTextAttrs(toText, fromTextAttrsDict) {
     for (const key in fromTextAttrsDict) {
       if (fromTextAttrsDict.hasOwnProperty(key)) { // eslint-disable-line
@@ -845,6 +927,15 @@ const _drawTextCandidateFunc = (function () {
 })();
 
 const _drawMenuItemTextCandidateFunc = (function () {
+  /**
+   * @param {any} content
+   * @param {any} g
+   * @param {any} x
+   * @param {any} y
+   * @param {any} width
+   * @param {any} height
+   * @param {any} textAttrs
+   */
   function byText(content, g, x, y, width, height, textAttrs) {
     const text = g
       .append('text')
@@ -855,6 +946,16 @@ const _drawMenuItemTextCandidateFunc = (function () {
     _setTextAttrs(text, textAttrs);
   }
 
+  /**
+   * @param {any} content
+   * @param {any} g
+   * @param {any} x
+   * @param {any} y
+   * @param {any} width
+   * @param {any} height
+   * @param {any} textAttrs
+   * @param {any} conf
+   */
   function byTspan(content, g, x, y, width, height, textAttrs, conf) {
     const { actorFontSize, actorFontFamily, actorFontWeight } = conf;
 
@@ -880,6 +981,16 @@ const _drawMenuItemTextCandidateFunc = (function () {
     }
   }
 
+  /**
+   * @param {any} content
+   * @param {any} g
+   * @param {any} x
+   * @param {any} y
+   * @param {any} width
+   * @param {any} height
+   * @param {any} textAttrs
+   * @param {any} conf
+   */
   function byFo(content, g, x, y, width, height, textAttrs, conf) {
     const s = g.append('switch');
     const f = s
@@ -906,6 +1017,10 @@ const _drawMenuItemTextCandidateFunc = (function () {
     _setTextAttrs(text, textAttrs);
   }
 
+  /**
+   * @param {any} toText
+   * @param {any} fromTextAttrsDict
+   */
   function _setTextAttrs(toText, fromTextAttrsDict) {
     for (const key in fromTextAttrsDict) {
       if (fromTextAttrsDict.hasOwnProperty(key)) { // eslint-disable-line
@@ -943,4 +1058,5 @@ export default {
   popupMenu,
   popdownMenu,
   fixLifeLineHeights,
+  sanitizeUrl,
 };

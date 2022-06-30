@@ -1,6 +1,6 @@
 /**
- * Web page integration module for the mermaid framework. It uses the mermaidAPI for mermaid functionality and to render
- * the diagrams to svg code.
+ * Web page integration module for the mermaid framework. It uses the mermaidAPI for mermaid
+ * functionality and to render the diagrams to svg code.
  */
 import { log } from './logger';
 import mermaidAPI from './mermaidAPI';
@@ -8,15 +8,17 @@ import utils from './utils';
 
 /**
  * ## init
+ *
  * Function that goes through the document to find the chart definitions in there and render them.
  *
- * The function tags the processed attributes with the attribute data-processed and ignores found elements with the
- * attribute already set. This way the init function can be triggered several times.
+ * The function tags the processed attributes with the attribute data-processed and ignores found
+ * elements with the attribute already set. This way the init function can be triggered several times.
  *
  * Optionally, `init` can accept in the second argument one of the following:
- * - a DOM Node
- * - an array of DOM nodes (as would come from a jQuery selector)
- * - a W3C selector, a la `.mermaid`
+ *
+ * - A DOM Node
+ * - An array of DOM nodes (as would come from a jQuery selector)
+ * - A W3C selector, a la `.mermaid`
  *
  * ```mermaid
  * graph LR;
@@ -24,10 +26,22 @@ import utils from './utils';
  *  b-->|Yes|c(Leave element)
  *  b-->|No |d(Transform)
  * ```
+ *
  * Renders the mermaid diagrams
- * @param nodes a css selector or an array of nodes
  */
 const init = function () {
+  try {
+    initThrowsErrors(...arguments);
+  } catch (e) {
+    log.warn('Syntax Error rendering');
+    log.warn(e);
+    if (this.parseError) {
+      this.parseError(e);
+    }
+  }
+};
+
+const initThrowsErrors = function () {
   const conf = mermaidAPI.getConfig();
   // console.log('Starting rendering diagrams (init) - mermaid.init', conf);
   let nodes;
@@ -76,11 +90,12 @@ const init = function () {
     mermaidAPI.updateSiteConfig({ gantt: mermaid.ganttConfig });
   }
 
-  const idGeneratior = new utils.initIdGeneratior(conf.deterministicIds, conf.deterministicIDSeed);
+  const idGenerator = new utils.initIdGenerator(conf.deterministicIds, conf.deterministicIDSeed);
 
   let txt;
 
   for (let i = 0; i < nodes.length; i++) {
+    // element is the current div with mermaid class
     const element = nodes[i];
 
     /*! Check if previously processed */
@@ -90,7 +105,7 @@ const init = function () {
       continue;
     }
 
-    const id = `mermaid-${idGeneratior.next()}`;
+    const id = `mermaid-${idGenerator.next()}`;
 
     // Fetch the graph definition including tags
     txt = element.innerHTML;
@@ -106,26 +121,18 @@ const init = function () {
       log.debug('Detected early reinit: ', init);
     }
 
-    try {
-      mermaidAPI.render(
-        id,
-        txt,
-        (svgCode, bindFunctions) => {
-          element.innerHTML = svgCode;
-          if (typeof callback !== 'undefined') {
-            callback(id);
-          }
-          if (bindFunctions) bindFunctions(element);
-        },
-        element
-      );
-    } catch (e) {
-      log.warn('Syntax Error rendering');
-      log.warn(e);
-      if (this.parseError) {
-        this.parseError(e);
-      }
-    }
+    mermaidAPI.render(
+      id,
+      txt,
+      (svgCode, bindFunctions) => {
+        element.innerHTML = svgCode;
+        if (typeof callback !== 'undefined') {
+          callback(id);
+        }
+        if (bindFunctions) bindFunctions(element);
+      },
+      element
+    );
   }
 };
 
@@ -145,9 +152,8 @@ const initialize = function (config) {
 };
 
 /**
- * ##contentLoaded
- * Callback function that is called when page is loaded. This functions fetches configuration for mermaid rendering and
- * calls init for rendering the mermaid diagrams on the page.
+ * ##contentLoaded Callback function that is called when page is loaded. This functions fetches
+ * configuration for mermaid rendering and calls init for rendering the mermaid diagrams on the page.
  */
 const contentLoaded = function () {
   let config;
@@ -182,18 +188,39 @@ if (typeof document !== 'undefined') {
   );
 }
 
+/**
+ * ## setParseErrorHandler  Alternative to directly setting parseError using:
+ *
+ * ```js
+ * mermaid.parseError = function(err,hash){=
+ *   forExampleDisplayErrorInGui(err);  // do something with the error
+ * };
+ * ```
+ *
+ * This is provided for environments where the mermaid object can't directly have a new member added
+ * to it (eg. dart interop wrapper). (Initially there is no parseError member of mermaid).
+ *
+ * @param {function (err, hash)} newParseErrorHandler New parseError() callback.
+ */
+const setParseErrorHandler = function (newParseErrorHandler) {
+  mermaid.parseError = newParseErrorHandler;
+};
+
 const mermaid = {
   startOnLoad: true,
   htmlLabels: true,
 
   mermaidAPI,
-  parse: mermaidAPI.parse,
-  render: mermaidAPI.render,
+  parse: mermaidAPI != undefined ? mermaidAPI.parse : null,
+  render: mermaidAPI != undefined ? mermaidAPI.render : null,
 
   init,
+  initThrowsErrors,
   initialize,
 
   contentLoaded,
+
+  setParseErrorHandler,
 };
 
 export default mermaid;

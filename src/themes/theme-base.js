@@ -3,43 +3,28 @@ import { mkBorder } from './theme-helpers';
 class Theme {
   constructor() {
     /** # Base variables */
-    /** * background - used to know what the background color is of the diagram. This is used for deducing colors for istance line color. Defaulr value is #f4f4f4. */
+    /**
+     * - Background - used to know what the background color is of the diagram. This is used for
+     *   deducing colors for instance line color. Default value is #f4f4f4.
+     */
     this.background = '#f4f4f4';
     this.darkMode = false;
 
-    // this.background = '#0c0c0c';
-    // this.darkMode = true;
     this.primaryColor = '#fff4dd';
-    // this.background = '#0c0c0c';
-    // this.primaryColor = '#1f1f00';
 
     this.noteBkgColor = '#fff5ad';
     this.noteTextColor = '#333';
 
     // dark
 
-    // this.primaryColor = '#034694';
-    // this.primaryColor = '#f2ee7e';
-    // this.primaryColor = '#9f33be';
-    // this.primaryColor = '#f0fff0';
-    // this.primaryColor = '#fa255e';
-    // this.primaryColor = '#ECECFF';
-
-    // this.secondaryColor = '#c39ea0';
-    // this.tertiaryColor = '#f8e5e5';
-
-    // this.secondaryColor = '#dfdfde';
-    // this.tertiaryColor = '#CCCCFF';
-
     this.fontFamily = '"trebuchet ms", verdana, arial, sans-serif';
     this.fontSize = '16px';
-    // this.updateColors();
   }
   updateColors() {
-    // The || is to make sure that if the variable has been defiend by a user override that value is to be used
+    // The || is to make sure that if the variable has been defined by a user override that value is to be used
 
     /* Main */
-    this.primaryTextColor = this.primaryTextColor || (this.darkMode ? '#ddd' : '#333'); // invert(this.primaryColor);
+    this.primaryTextColor = this.primaryTextColor || (this.darkMode ? '#eee' : '#333'); // invert(this.primaryColor);
     this.secondaryColor = this.secondaryColor || adjust(this.primaryColor, { h: -120 });
     this.tertiaryColor = this.tertiaryColor || adjust(this.primaryColor, { h: 180, l: 5 });
 
@@ -92,6 +77,7 @@ class Theme {
     this.altSectionBkgColor = this.altSectionBkgColor || 'white';
     this.sectionBkgColor = this.sectionBkgColor || this.secondaryColor;
     this.sectionBkgColor2 = this.sectionBkgColor2 || this.primaryColor;
+    this.excludeBkgColor = this.excludeBkgColor || '#eeeeee';
     this.taskBorderColor = this.taskBorderColor || this.primaryBorderColor;
     this.taskBkgColor = this.taskBkgColor || this.primaryColor;
     this.activeTaskBorderColor = this.activeTaskBorderColor || this.primaryColor;
@@ -109,10 +95,15 @@ class Theme {
     this.taskTextDarkColor = this.taskTextDarkColor || this.textColor;
     this.taskTextClickableColor = this.taskTextClickableColor || '#003163';
 
+    /* Sequence Diagram variables */
+
+    this.personBorder = this.personBorder || this.primaryBorderColor;
+    this.personBkg = this.personBkg || this.mainBkg;
+
     /* state colors */
     this.transitionColor = this.transitionColor || this.lineColor;
     this.transitionLabelColor = this.transitionLabelColor || this.textColor;
-    /* The color of the text tables of the tstates*/
+    /* The color of the text tables of the states*/
     this.stateLabelColor = this.stateLabelColor || this.stateBkg || this.primaryTextColor;
 
     this.stateBkg = this.stateBkg || this.mainBkg;
@@ -173,6 +164,61 @@ class Theme {
       this.relationLabelBackground ||
       (this.darkMode ? darken(this.secondaryColor, 30) : this.secondaryColor);
     this.relationLabelColor = this.relationLabelColor || this.actorTextColor;
+
+    /* git */
+    this.git0 = this.git0 || this.primaryColor;
+    this.git1 = this.git1 || this.secondaryColor;
+    this.git2 = this.git2 || this.tertiaryColor;
+    this.git3 = this.git3 || adjust(this.primaryColor, { h: -30 });
+    this.git4 = this.git4 || adjust(this.primaryColor, { h: -60 });
+    this.git5 = this.git5 || adjust(this.primaryColor, { h: -90 });
+    this.git6 = this.git6 || adjust(this.primaryColor, { h: +60 });
+    this.git7 = this.git7 || adjust(this.primaryColor, { h: +120 });
+    if (this.darkMode) {
+      this.git0 = lighten(this.git0, 25);
+      this.git1 = lighten(this.git1, 25);
+      this.git2 = lighten(this.git2, 25);
+      this.git3 = lighten(this.git3, 25);
+      this.git4 = lighten(this.git4, 25);
+      this.git5 = lighten(this.git5, 25);
+      this.git6 = lighten(this.git6, 25);
+      this.git7 = lighten(this.git7, 25);
+    } else {
+      this.git0 = darken(this.git0, 25);
+      this.git1 = darken(this.git1, 25);
+      this.git2 = darken(this.git2, 25);
+      this.git3 = darken(this.git3, 25);
+      this.git4 = darken(this.git4, 25);
+      this.git5 = darken(this.git5, 25);
+      this.git6 = darken(this.git6, 25);
+      this.git7 = darken(this.git7, 25);
+    }
+    this.gitInv0 = this.gitInv0 || invert(this.git0);
+    this.gitInv1 = this.gitInv1 || invert(this.git1);
+    this.gitInv2 = this.gitInv2 || invert(this.git2);
+    this.gitInv3 = this.gitInv3 || invert(this.git3);
+    this.gitInv4 = this.gitInv4 || invert(this.git4);
+    this.gitInv5 = this.gitInv5 || invert(this.git5);
+    this.gitInv6 = this.gitInv6 || invert(this.git6);
+    this.gitInv7 = this.gitInv7 || invert(this.git7);
+    this.branchLabelColor =
+      this.branchLabelColor || (this.darkMode ? 'black' : this.labelTextColor);
+    this.gitBranchLabel0 = this.gitBranchLabel0 || this.branchLabelColor;
+    this.gitBranchLabel1 = this.gitBranchLabel1 || this.branchLabelColor;
+    this.gitBranchLabel2 = this.gitBranchLabel2 || this.branchLabelColor;
+    this.gitBranchLabel3 = this.gitBranchLabel3 || this.branchLabelColor;
+    this.gitBranchLabel4 = this.gitBranchLabel4 || this.branchLabelColor;
+    this.gitBranchLabel5 = this.gitBranchLabel5 || this.branchLabelColor;
+    this.gitBranchLabel6 = this.gitBranchLabel6 || this.branchLabelColor;
+    this.gitBranchLabel7 = this.gitBranchLabel7 || this.branchLabelColor;
+
+    this.tagLabelColor = this.tagLabelColor || this.primaryTextColor;
+    this.tagLabelBackground = this.tagLabelBackground || this.primaryColor;
+    this.tagLabelBorder = this.tagBorder || this.primaryBorderColor;
+    this.tagLabelFontSize = this.tagLabelFontSize || '10px';
+    this.commitLabelColor = this.commitLabelColor || this.secondaryTextColor;
+    this.commitLabelBackground = this.commitLabelBackground || this.secondaryColor;
+    this.commitLabelFontSize = this.commitLabelFontSize || '10px';
   }
   calculate(overrides) {
     if (typeof overrides !== 'object') {

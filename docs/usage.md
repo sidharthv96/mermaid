@@ -2,7 +2,7 @@
 
 **Edit this Page** [![N|Solid](img/GitHub-Mark-32px.png)](https://github.com/mermaid-js/mermaid/blob/develop/docs/usage.md)
 
-Mermaid is a Javascript tool that makes use of a markdown based syntax to render customizable diagrams, charts and visualizations.
+Mermaid is a JavaScript tool that makes use of a Markdown based syntax to render customizable diagrams, charts and visualizations.
 
 Diagrams can be re-rendered/modified by modifying their descriptions.
 
@@ -14,7 +14,7 @@ Please note that you can switch versions through the dropdown box at the top rig
 
 ## Using mermaid
 
-For the majority of users, Using the [Live Editor](https://mermaid-js.github.io/mermaid-live-editor/) would be sufficient, however you may also opt to deploy mermaid as a dependency or using the [Mermaid API](./Setup.md).
+For the majority of users, Using the [Live Editor](https://mermaid.live/) would be sufficient, however you may also opt to deploy mermaid as a dependency or using the [Mermaid API](./Setup.md).
 
 We have compiled some Video [Tutorials](./Tutorials.md) on how to use the mermaid Live Editor.
 
@@ -50,7 +50,8 @@ The easiest way to integrate mermaid on a web page requires three elements:
 
 2. The `mermaidAPI` call, in a separate `script` tag. Example:
     ```html
-    <script>mermaid.initialize({startOnLoad:true});</script>
+    <script>mermaid.initialize({startOnLoad:true});
+    </script>
     ```
 
 3. A graph definition, inside `<div>` tags labeled `class=mermaid`. Example:
@@ -82,7 +83,8 @@ locate the graph definitions inside the `div` tags with `class="mermaid"` and re
       B-->D(fa:fa-spinner);
   </div>
  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
- <script>mermaid.initialize({startOnLoad:true});</script>
+ <script>mermaid.initialize({startOnLoad:true});
+</script>
 </body>
 </html>
 ```
@@ -105,17 +107,19 @@ Mermaid can load multiple diagrams, in the same page.
 
 | Parameter     | Description                       | Type   | Required | Values                    |
 | ------------- | --------------------------------- | ------ | -------- | ------------------------- |
-| securityLevel | Level of trust for parsed diagram | String | Required | Strict, Loose, antiscript |
+| securityLevel | Level of trust for parsed diagram | String | Required | Strict, Loose, antiscript , sandbox|
 
 Values:
 
 -   **strict**: (**default**) tags in text are encoded, click functionality is disabled
 -   **loose**: tags in text are allowed, click functionality is enabled
 -   **antiscript**: html tags in text are allowed, (only script element is removed), click functionality is enabled
+-   **sandbox**: With this security level all rendering takes place in a sandboxed iframe. This prevent any JavaScript running in the context. This may hinder interactive functionality of the diagram like scripts, popups in sequence diagram or links to other tabs/targets etc.
 
 
 ```note
 This changes the default behaviour of mermaid so that after upgrade to 8.2,unless the `securityLevel` is not changed, tags in flowcharts are encoded as tags and clicking is disabled.
+**sandbox** security level is still in the beta version.
 ```
 
 **If you are taking responsibility for the diagram source security you can set the `securityLevel` to a value of your choosing . This allows clicks and tags are allowed.**
@@ -194,29 +198,19 @@ mermaid fully supports webpack. Here is a [working demo](https://github.com/merm
 ## API usage
 
 The main idea of the API is to be able to call a render function with the graph definition as a string. The render function
-will render the graph and call a callback with the resulting svg code. With this approach it is up to the site creator to
+will render the graph and call a callback with the resulting SVG code. With this approach it is up to the site creator to
 fetch the graph definition from the site (perhaps from a textarea), render it and place the graph somewhere in the site.
 
-The example below show an outline of how this could be used. The example just logs the resulting svg to the javascript console.
+The example below show an outline of how this could be used. The example just logs the resulting SVG to the JavaScript console.
 
 ```html
 <script src="mermaid.js"></script>
 
 <script>
-    mermaid.mermaidAPI.initialize({
-        startOnLoad:false
-    });
-    $(function(){
-        // Example of using the API
-        var element = document.querySelector("#graphDiv");
-
-        var insertSvg = function(svgCode, bindFunctions){
-            element.innerHTML = svgCode;
-        };
-
-        var graphDefinition = 'graph TB\na-->b';
-        var graph = mermaid.mermaidAPI.render('graphDiv', graphDefinition, insertSvg);
-    });
+    mermaid.mermaidAPI.initialize({ startOnLoad:false }); $(function(){ // Example of using the API var
+element = document.querySelector("#graphDiv"); var insertSvg = function(svgCode, bindFunctions){
+    element.innerHTML = svgCode; }; var graphDefinition = 'graph TB\na-->b'; var graph =
+mermaid.mermaidAPI.render('graphDiv', graphDefinition, insertSvg); });
 </script>
 ```
 
@@ -227,7 +221,7 @@ Sometimes the generated graph also has defined interactions like tooltip and cli
 add those events after the graph has been inserted into the DOM.
 
 The example code below is an extract of what mermaid does when using the API. The example shows how it is possible to
-bind events to an svg when using the API for rendering.
+bind events to an SVG when using the API for rendering.
 
 ```javascript
 var insertSvg = function(svgCode, bindFunctions) {
@@ -246,14 +240,14 @@ mermaidAPI.render(id,txt,insertSvg, element);
 
 1. The graph is generated using the render call.
 2. After generation the render function calls the provided callback function, in this case it's called insertSvg.
-3. The callback function is called with two parameters, the svg code of the generated graph and a function. This function binds events to the svg **after** it is inserted into the DOM.
-4. Insert the svg code into the DOM for presentation.
+3. The callback function is called with two parameters, the SVG code of the generated graph and a function. This function binds events to the SVG **after** it is inserted into the DOM.
+4. Insert the SVG code into the DOM for presentation.
 5. Call the binding function that binds the events.
 
 
 ## Example of a marked renderer
 
-This is the renderer used for transforming the documentation from markdown to html with mermaid diagrams in the html.
+This is the renderer used for transforming the documentation from Markdown to html with mermaid diagrams in the html.
 
 ```javascript
 var renderer = new marked.Renderer();
@@ -267,9 +261,9 @@ renderer.code = function (code, language) {
 };
 ```
 
-Another example in coffeescript that also includes the mermaid script tag in the generated markup.
+Another example in CoffeeScript that also includes the mermaid script tag in the generated markup.
 
-```js
+```coffee
 marked = require 'marked'
 
 module.exports = (options) ->
@@ -320,7 +314,7 @@ var textFieldUpdated = function(){
 bindEventHandler('change', 'code', textFieldUpdated);
 ```
 **Alternative to mermaid.parse():**
-One effective and more future-proof method of validating your graph deinitions, is to paste and render them via the [Mermaid Live Editor](https://mermaid-js.github.io/mermaid-live-editor/). This will ensure that your code is compliant with the syntax of Mermaid's most recent version. 
+One effective and more future-proof method of validating your graph definitions, is to paste and render them via the [Mermaid Live Editor](https://mermaid.live/). This will ensure that your code is compliant with the syntax of Mermaid's most recent version.
 
 
 ## Configuration
@@ -345,13 +339,7 @@ on what kind of integration you use.
 ```html
 <script src="../dist/mermaid.js"></script>
 <script>
-    var config = {
-        startOnLoad:true,
-        flowchart:{
-            useMaxWidth:false,
-            htmlLabels:true
-        }
-    };
+    var config = { startOnLoad:true, flowchart:{ useMaxWidth:false, htmlLabels:true } };
     mermaid.initialize(config);
 </script>
 ```
@@ -370,7 +358,7 @@ approach are:
 * mermaid.startOnLoad
 * mermaid.htmlLabels
 
-```js
+```javascript
 mermaid.startOnLoad = true;
 ```
 
@@ -401,7 +389,7 @@ To set some configuration via the mermaid object. The two parameters that are su
 * mermaid_config.startOnLoad
 * mermaid_config.htmlLabels
 
-```
+```javascript
 mermaid_config.startOnLoad = true;
 ```
 

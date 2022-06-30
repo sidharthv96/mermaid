@@ -3,10 +3,11 @@ import { select } from 'd3';
 import stateDb from './stateDb';
 import state from './parser/stateDiagram.jison';
 import { getConfig } from '../../config';
-// import { evaluate } from '../common/common';
 import { render } from '../../dagre-wrapper/index.js';
 import { log } from '../../logger';
 import { configureSvgSize } from '../../utils';
+import common from '../common/common';
+import addSVGAccessibilityFields from '../../accessibility';
 
 const conf = {};
 export const setConf = function (cnf) {
@@ -20,7 +21,9 @@ let nodeDb = {};
 
 /**
  * Returns the all the styles from classDef statements in the graph definition.
- * @returns {object} classDef styles
+ *
+ * @param {any} text
+ * @returns {object} ClassDef styles
  */
 export const getClasses = function (text) {
   log.trace('Extracting classes');
@@ -51,7 +54,7 @@ const setupNode = (g, parent, node, altFlag) => {
       nodeDb[node.id] = {
         id: node.id,
         shape,
-        description: node.id,
+        description: common.sanitizeText(node.id, getConfig()),
         classes: 'statediagram-state',
       };
     }
@@ -77,6 +80,15 @@ const setupNode = (g, parent, node, altFlag) => {
           nodeDb[node.id].description = node.description;
         }
       }
+      nodeDb[node.id].description = common.sanitizeTextOrArray(
+        nodeDb[node.id].description,
+        getConfig()
+      );
+    }
+
+    //
+    if (nodeDb[node.id].description.length === 1 && nodeDb[node.id].shape === 'rectWithTitle') {
+      nodeDb[node.id].shape = 'rect';
     }
 
     // Save data for description and group so that for instance a statement without description overwrites
@@ -194,7 +206,7 @@ const setupDoc = (g, parent, doc, altFlag) => {
         arrowTypeEnd: 'arrow_barb',
         style: 'fill:none',
         labelStyle: '',
-        label: item.description,
+        label: common.sanitizeText(item.description, getConfig()),
         arrowheadStyle: 'fill: #333',
         labelpos: 'c',
         labelType: 'text',
@@ -223,8 +235,9 @@ const getDir = (nodes, defaultDir) => {
 };
 /**
  * Draws a flowchart in the tag with id: id based on the graph definition in text.
- * @param text
- * @param id
+ *
+ * @param {any} text
+ * @param {any} id
  */
 export const draw = function (text, id) {
   log.info('Drawing state diagram (v2)', id);
@@ -245,6 +258,8 @@ export const draw = function (text, id) {
   const conf = getConfig().state;
   const nodeSpacing = conf.nodeSpacing || 50;
   const rankSpacing = conf.rankSpacing || 50;
+
+  const securityLevel = getConfig().securityLevel;
 
   log.info(stateDb.getRootDocV2());
   stateDb.extract(stateDb.getRootDocV2());
@@ -269,10 +284,20 @@ export const draw = function (text, id) {
   setupNode(g, undefined, stateDb.getRootDocV2(), true);
 
   // Set up an SVG group so that we can translate the final graph.
-  const svg = select(`[id="${id}"]`);
+  let sandboxElement;
+  if (securityLevel === 'sandbox') {
+    sandboxElement = select('#i' + id);
+  }
+  const root =
+    securityLevel === 'sandbox'
+      ? select(sandboxElement.nodes()[0].contentDocument.body)
+      : select('body');
+  const doc = securityLevel === 'sandbox' ? sandboxElement.nodes()[0].contentDocument : document;
+  const svg = root.select(`[id="${id}"]`);
 
   // Run the renderer. This is what draws the final graph.
-  const element = select('#' + id + ' g');
+
+  const element = root.select('#' + id + ' g');
   render(element, g, ['barb'], 'statediagram', id);
 
   const padding = 8;
@@ -312,6 +337,7 @@ export const draw = function (text, id) {
     label.insertBefore(rect, label.firstChild);
     // }
   }
+  addSVGAccessibilityFields(parser.yy, svg, id);
 };
 
 export default {

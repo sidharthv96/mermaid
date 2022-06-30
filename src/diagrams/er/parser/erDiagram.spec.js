@@ -3,11 +3,10 @@ import erDb from '../erDb';
 import erDiagram from './erDiagram';
 
 setConfig({
-  securityLevel: 'strict'
+  securityLevel: 'strict',
 });
 
 describe('when parsing ER diagram it...', function () {
-
   beforeEach(function () {
     erDiagram.parser.yy = erDb;
     erDiagram.parser.yy.clear();
@@ -60,6 +59,7 @@ describe('when parsing ER diagram it...', function () {
     const entities = erDb.getEntities();
     expect(Object.keys(entities).length).toBe(1);
     expect(entities[entity].attributes.length).toBe(1);
+    expect(entities[entity].attributes[0].attributeComment).toBe('comment');
   });
 
   it('should allow an entity with a single attribute to be defined with a key and a comment', function () {
@@ -72,13 +72,28 @@ describe('when parsing ER diagram it...', function () {
     expect(entities[entity].attributes.length).toBe(1);
   });
 
+  it('should allow an entity with attribute starting with fk or pk and a comment', function () {
+    const entity = 'BOOK';
+    const attribute1 = 'int fk_title FK';
+    const attribute2 = 'string pk_author PK';
+    const attribute3 = 'float pk_price PK "comment"';
+
+    erDiagram.parser.parse(
+      `erDiagram\n${entity} {\n${attribute1} \n\n${attribute2}\n${attribute3}\n}`
+    );
+    const entities = erDb.getEntities();
+    expect(entities[entity].attributes.length).toBe(3);
+  });
+
   it('should allow an entity with multiple attributes to be defined', function () {
     const entity = 'BOOK';
     const attribute1 = 'string title';
     const attribute2 = 'string author';
     const attribute3 = 'float price';
 
-    erDiagram.parser.parse(`erDiagram\n${entity} {\n${attribute1}\n${attribute2}\n${attribute3}\n}`);
+    erDiagram.parser.parse(
+      `erDiagram\n${entity} {\n${attribute1}\n${attribute2}\n${attribute3}\n}`
+    );
     const entities = erDb.getEntities();
     expect(entities[entity].attributes.length).toBe(3);
   });
@@ -89,7 +104,9 @@ describe('when parsing ER diagram it...', function () {
     const attribute2 = 'string author';
     const attribute3 = 'float price';
 
-    erDiagram.parser.parse(`erDiagram\n${entity} {\n${attribute1}\n}\n${entity} {\n${attribute2}\n${attribute3}\n}`);
+    erDiagram.parser.parse(
+      `erDiagram\n${entity} {\n${attribute1}\n}\n${entity} {\n${attribute2}\n${attribute3}\n}`
+    );
     const entities = erDb.getEntities();
     expect(entities[entity].attributes.length).toBe(3);
   });
@@ -177,6 +194,36 @@ describe('when parsing ER diagram it...', function () {
     expect(Object.keys(erDb.getEntities()).length).toBe(1);
   });
 
+  it('should allow for a accessibility title and description (accDescr)', function () {
+    const teacherRole = 'is teacher of';
+    const line1 = `TEACHER }o--o{ STUDENT : "${teacherRole}"`;
+
+    erDiagram.parser.parse(
+      `erDiagram
+      accTitle: graph title
+      accDescr: this graph is about stuff
+      ${line1}`
+    );
+    expect(erDb.getAccTitle()).toBe('graph title');
+    expect(erDb.getAccDescription()).toBe('this graph is about stuff');
+  });
+
+  it('should allow for a accessibility title and multi line description (accDescr)', function () {
+    const teacherRole = 'is teacher of';
+    const line1 = `TEACHER }o--o{ STUDENT : "${teacherRole}"`;
+
+    erDiagram.parser.parse(
+      `erDiagram
+      accTitle: graph title
+      accDescr {
+        this graph is about stuff
+      }\n
+      ${line1}`
+    );
+    expect(erDb.getAccTitle()).toBe('graph title');
+    expect(erDb.getAccDescription()).toBe('this graph is about stuff');
+  });
+
   it('should allow more than one relationship between the same two entities', function () {
     const line1 = 'CAR ||--o{ PERSON : "insured for"';
     const line2 = 'CAR }o--|| PERSON : "owned by"';
@@ -196,7 +243,6 @@ describe('when parsing ER diagram it...', function () {
     /* TODO */
   });
 
-
   it('should handle only-one-to-one-or-more relationships', function () {
     erDiagram.parser.parse('erDiagram\nA ||--|{ B : has');
     const rels = erDb.getRelationships();
@@ -215,7 +261,6 @@ describe('when parsing ER diagram it...', function () {
     expect(rels.length).toBe(1);
     expect(rels[0].relSpec.cardA).toBe(erDb.Cardinality.ZERO_OR_MORE);
     expect(rels[0].relSpec.cardB).toBe(erDb.Cardinality.ONLY_ONE);
-
   });
 
   it('should handle zero-or-one-to-zero-or-more relationships', function () {
@@ -393,5 +438,11 @@ describe('when parsing ER diagram it...', function () {
     erDiagram.parser.parse('erDiagram\nCUSTOMER ||--|{ ORDER : places');
     const rels = erDb.getRelationships();
     expect(rels[0].roleA).toBe('places');
+  });
+
+  it('should allow an entity name with a dot', function () {
+    erDiagram.parser.parse('erDiagram\nCUSTOMER.PROP ||--|{ ORDER : places');
+    const rels = erDb.getRelationships();
+    expect(rels[0].entityA).toBe('CUSTOMER.PROP');
   });
 });

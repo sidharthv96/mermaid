@@ -1,10 +1,19 @@
 import { log } from '../../logger';
 import { generateId } from '../../utils';
 import mermaidAPI from '../../mermaidAPI';
+import common from '../common/common';
 import * as configApi from '../../config';
+import {
+  setAccTitle,
+  getAccTitle,
+  getAccDescription,
+  setAccDescription,
+  clear as commonClear,
+} from '../../commonDb';
+
+const sanitizeText = (txt) => common.sanitizeText(txt, configApi.getConfig());
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
-
 let rootDoc = [];
 
 export const parseDirective = function (statement, context, type) {
@@ -83,7 +92,7 @@ const extract = (_doc) => {
   //   doc = root;
   // }
   log.info(doc);
-  clear();
+  clear(true);
 
   log.info('Extract', doc);
 
@@ -115,12 +124,17 @@ let startCnt = 0;
 let endCnt = 0; // eslint-disable-line
 // let stateCnt = 0;
 
+let title = 'State diagram';
+let description = '';
+
 /**
  * Function called by parser when a node definition has been found.
- * @param id
- * @param text
- * @param type
- * @param style
+ *
+ * @param {any} id
+ * @param {any} type
+ * @param {any} doc
+ * @param {any} descr
+ * @param {any} note
  */
 export const addState = function (id, type, doc, descr, note) {
   if (typeof currentDocument.states[id] === 'undefined') {
@@ -148,10 +162,16 @@ export const addState = function (id, type, doc, descr, note) {
     }
   }
 
-  if (note) currentDocument.states[id].note = note;
+  if (note) {
+    currentDocument.states[id].note = note;
+    currentDocument.states[id].note.text = common.sanitizeText(
+      currentDocument.states[id].note.text,
+      configApi.getConfig()
+    );
+  }
 };
 
-export const clear = function () {
+export const clear = function (saveCommon) {
   documents = {
     root: newDoc(),
   };
@@ -162,6 +182,9 @@ export const clear = function () {
   startCnt = 0;
   endCnt = 0; // eslint-disable-line
   classes = [];
+  if (!saveCommon) {
+    commonClear();
+  }
 };
 
 export const getState = function (id) {
@@ -195,7 +218,11 @@ export const addRelation = function (_id1, _id2, title) {
   }
   addState(id1, type1);
   addState(id2, type2);
-  currentDocument.relations.push({ id1, id2, title: title });
+  currentDocument.relations.push({
+    id1,
+    id2,
+    title: common.sanitizeText(title, configApi.getConfig()),
+  });
 };
 
 const addDescription = function (id, _descr) {
@@ -204,8 +231,7 @@ const addDescription = function (id, _descr) {
   if (descr[0] === ':') {
     descr = descr.substr(1).trim();
   }
-
-  theState.descriptions.push(descr);
+  theState.descriptions.push(common.sanitizeText(descr, configApi.getConfig()));
 };
 
 export const cleanupLabel = function (label) {
@@ -259,7 +285,6 @@ export default {
   addRelation,
   getDividerId,
   setDirection,
-  // addDescription,
   cleanupLabel,
   lineType,
   relationType,
@@ -269,4 +294,8 @@ export default {
   getRootDocV2,
   extract,
   trimColon,
+  getAccTitle,
+  setAccTitle,
+  getAccDescription,
+  setAccDescription,
 };

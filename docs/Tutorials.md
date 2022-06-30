@@ -22,7 +22,7 @@ The definitions that can be generated the Live-Editor are also backwards-compati
 
 
 ## Mermaid with HTML
-Examples are provided in [Gettting Started](n00b-gettingStarted.md)
+Examples are provided in [Getting Started](n00b-gettingStarted.md)
 
 **CodePen Examples:**
 
@@ -37,32 +37,38 @@ https://codepen.io/janzeteachesit/pen/OWWZKN
 
 https://codepen.io/Ryuno-Ki/pen/LNxwgR
 
-## Python Integration with mermaid-js
-Here's an example of python integration with mermaid-js which uses the mermaid.ink service. 
-This is also working with colab and jupyter lab notebooks.
+## Mermaid in open source docs
+
+[K8s.io Diagram Guide](https://kubernetes.io/docs/contribute/style/diagram-guide/)
+
+[K8s.dev blog: Improve your documentation with Mermaid.js diagrams](https://www.kubernetes.dev/blog/2021/12/01/improve-your-documentation-with-mermaid.js-diagrams/)
+
+
+## Jupyter Integration with mermaid-js
+
+Here's an example of Python integration with mermaid-js which uses the mermaid.ink service, that displays the graph in a Jupyter notebook.
 
 ```python
 import base64
-import requests, io
-from PIL import Image
+from IPython.display import Image, display
 import matplotlib.pyplot as plt
 
-graph = """
+def mm(graph):
+  graphbytes = graph.encode("ascii")
+  base64_bytes = base64.b64encode(graphbytes)
+  base64_string = base64_bytes.decode("ascii")
+  display(Image(url="https://mermaid.ink/img/" + base64_string))
+
+mm("""
 graph LR;
     A--> B & C & D;
     B--> A & E;
     C--> A & E;
     D--> A & E;
     E--> B & C & D;
-"""
-
-graphbytes = graph.encode("ascii")
-base64_bytes = base64.b64encode(graphbytes)
-base64_string = base64_bytes.decode("ascii")
-img = Image.open(io.BytesIO(requests.get('https://mermaid.ink/img/' + base64_string).content))
-plt.imshow(img)
+""")
 ```
 
 **Output**
 
-![image](img/python-mermaid-integration.png)
+![Example graph of the Python integration](img/python-mermaid-integration.png)

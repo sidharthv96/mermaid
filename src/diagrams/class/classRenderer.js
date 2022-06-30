@@ -6,6 +6,8 @@ import classDb, { lookUpDomId } from './classDb';
 import { parser } from './parser/classDiagram.jison';
 import svgDraw from './svgDraw';
 import { configureSvgSize } from '../../utils';
+import { getConfig } from '../../config';
+import addSVGAccessibilityFields from '../../accessibility';
 
 parser.yy = classDb;
 
@@ -18,21 +20,24 @@ const conf = {
   textHeight: 10,
 };
 
-// Todo optimize
+/**
+ * Gets the ID with the same label as in the cache
+ *
+ * @param {string} label The label to look for
+ * @returns {string} The resulting ID
+ */
 const getGraphId = function (label) {
-  const keys = Object.keys(idCache);
+  const foundEntry = Object.entries(idCache).find((entry) => entry[1].label === label);
 
-  for (let i = 0; i < keys.length; i++) {
-    if (idCache[keys[i]].label === label) {
-      return keys[i];
-    }
+  if (foundEntry) {
+    return foundEntry[0];
   }
-
-  return undefined;
 };
 
 /**
  * Setup arrow head and define the marker. The result is appended to the svg.
+ *
+ * @param {SVGSVGElement} elem The SVG element to append to
  */
 const insertMarkers = function (elem) {
   elem
@@ -136,6 +141,11 @@ const insertMarkers = function (elem) {
     .attr('d', 'M 18,7 L9,13 L14,7 L9,1 Z');
 };
 
+/**
+ * Merges the value of `conf` with the passed `cnf`
+ *
+ * @param {object} cnf Config to merge
+ */
 export const setConf = function (cnf) {
   const keys = Object.keys(cnf);
 
@@ -146,8 +156,9 @@ export const setConf = function (cnf) {
 
 /**
  * Draws a flowchart in the tag with id: id based on the graph definition in text.
- * @param text
- * @param id
+ *
+ * @param {string} text
+ * @param {string} id
  */
 export const draw = function (text, id) {
   idCache = {};
@@ -156,8 +167,20 @@ export const draw = function (text, id) {
 
   log.info('Rendering diagram ' + text);
 
+  const securityLevel = getConfig().securityLevel;
+  // Handle root and Document for when rendering in sanbox mode
+  let sandboxElement;
+  if (securityLevel === 'sandbox') {
+    sandboxElement = select('#i' + id);
+  }
+  const root =
+    securityLevel === 'sandbox'
+      ? select(sandboxElement.nodes()[0].contentDocument.body)
+      : select('body');
+  const doc = securityLevel === 'sandbox' ? sandboxElement.nodes()[0].contentDocument : document;
+
   // Fetch the default direction, use TD if none was found
-  const diagram = select(`[id='${id}']`);
+  const diagram = root.select(`[id='${id}']`);
   diagram.attr('xmlns:xlink', 'http://www.w3.org/1999/xlink');
   insertMarkers(diagram);
 
@@ -211,14 +234,16 @@ export const draw = function (text, id) {
   g.nodes().forEach(function (v) {
     if (typeof v !== 'undefined' && typeof g.node(v) !== 'undefined') {
       log.debug('Node ' + v + ': ' + JSON.stringify(g.node(v)));
-      select('#' + lookUpDomId(v)).attr(
-        'transform',
-        'translate(' +
-          (g.node(v).x - g.node(v).width / 2) +
-          ',' +
-          (g.node(v).y - g.node(v).height / 2) +
-          ' )'
-      );
+      root
+        .select('#' + lookUpDomId(v))
+        .attr(
+          'transform',
+          'translate(' +
+            (g.node(v).x - g.node(v).width / 2) +
+            ',' +
+            (g.node(v).y - g.node(v).height / 2) +
+            ' )'
+        );
     }
   });
 
@@ -239,6 +264,7 @@ export const draw = function (text, id) {
   const vBox = `${svgBounds.x - padding} ${svgBounds.y - padding} ${width} ${height}`;
   log.debug(`viewBox ${vBox}`);
   diagram.attr('viewBox', vBox);
+  addSVGAccessibilityFields(parser.yy, diagram, id);
 };
 
 export default {

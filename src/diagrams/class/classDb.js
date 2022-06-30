@@ -4,6 +4,13 @@ import * as configApi from '../../config';
 import common from '../common/common';
 import utils from '../../utils';
 import mermaidAPI from '../../mermaidAPI';
+import {
+  setAccTitle,
+  getAccTitle,
+  getAccDescription,
+  setAccDescription,
+  clear as commonClear,
+} from '../../commonDb';
 
 const MERMAID_DOM_ID_PREFIX = 'classid-';
 
@@ -12,6 +19,8 @@ let classes = {};
 let classCounter = 0;
 
 let funs = [];
+
+const sanitizeText = (txt) => common.sanitizeText(txt, configApi.getConfig());
 
 export const parseDirective = function (statement, context, type) {
   mermaidAPI.parseDirective(this, statement, context, type);
@@ -25,7 +34,7 @@ const splitClassNameAndType = function (id) {
     let split = id.split('~');
     className = split[0];
 
-    genericType = split[1];
+    genericType = common.sanitizeText(split[1], configApi.getConfig());
   }
 
   return { className: className, type: genericType };
@@ -33,6 +42,7 @@ const splitClassNameAndType = function (id) {
 
 /**
  * Function called by parser when a node definition has been found.
+ *
  * @param id
  * @public
  */
@@ -56,6 +66,7 @@ export const addClass = function (id) {
 
 /**
  * Function to lookup domId from id in the graph definition.
+ *
  * @param id
  * @public
  */
@@ -73,6 +84,7 @@ export const clear = function () {
   classes = {};
   funs = [];
   funs.push(setupToolTips);
+  commonClear();
 };
 
 export const getClass = function (id) {
@@ -94,12 +106,23 @@ export const addRelation = function (relation) {
   relation.id1 = splitClassNameAndType(relation.id1).className;
   relation.id2 = splitClassNameAndType(relation.id2).className;
 
+  relation.relationTitle1 = common.sanitizeText(
+    relation.relationTitle1.trim(),
+    configApi.getConfig()
+  );
+
+  relation.relationTitle2 = common.sanitizeText(
+    relation.relationTitle2.trim(),
+    configApi.getConfig()
+  );
+
   relations.push(relation);
 };
 
 /**
- * Adds an annotation to the specified class
- * Annotations mark special properties of the given type (like 'interface' or 'service')
+ * Adds an annotation to the specified class Annotations mark special properties of the given type
+ * (like 'interface' or 'service')
+ *
  * @param className The class name
  * @param annotation The name of the annotation without any brackets
  * @public
@@ -111,11 +134,11 @@ export const addAnnotation = function (className, annotation) {
 
 /**
  * Adds a member to the specified class
+ *
  * @param className The class name
- * @param member The full name of the member.
- * If the member is enclosed in <<brackets>> it is treated as an annotation
- * If the member is ending with a closing bracket ) it is treated as a method
- * Otherwise the member will be treated as a normal property
+ * @param member The full name of the member. If the member is enclosed in <<brackets>> it is
+ *   treated as an annotation If the member is ending with a closing bracket ) it is treated as a
+ *   method Otherwise the member will be treated as a normal property
  * @public
  */
 export const addMember = function (className, member) {
@@ -128,11 +151,12 @@ export const addMember = function (className, member) {
 
     if (memberString.startsWith('<<') && memberString.endsWith('>>')) {
       // Remove leading and trailing brackets
-      theClass.annotations.push(memberString.substring(2, memberString.length - 2));
+      // theClass.annotations.push(memberString.substring(2, memberString.length - 2));
+      theClass.annotations.push(sanitizeText(memberString.substring(2, memberString.length - 2)));
     } else if (memberString.indexOf(')') > 0) {
-      theClass.methods.push(memberString);
+      theClass.methods.push(sanitizeText(memberString));
     } else if (memberString) {
-      theClass.members.push(memberString);
+      theClass.members.push(sanitizeText(memberString));
     }
   }
 };
@@ -146,14 +170,15 @@ export const addMembers = function (className, members) {
 
 export const cleanupLabel = function (label) {
   if (label.substring(0, 1) === ':') {
-    return label.substr(1).trim();
+    return common.sanitizeText(label.substr(1).trim(), configApi.getConfig());
   } else {
-    return label.trim();
+    return sanitizeText(label.trim());
   }
 };
 
 /**
  * Called by parser when a special node is found, e.g. a clickable element.
+ *
  * @param ids Comma separated list of ids
  * @param className Class to add
  */
@@ -169,6 +194,7 @@ export const setCssClass = function (ids, className) {
 
 /**
  * Called by parser when a tooltip is found, e.g. a clickable element.
+ *
  * @param ids Comma separated list of ids
  * @param tooltip Tooltip to add
  */
@@ -183,6 +209,7 @@ const setTooltip = function (ids, tooltip) {
 
 /**
  * Called by parser when a link is found. Adds the URL to the vertex data.
+ *
  * @param ids Comma separated list of ids
  * @param linkStr URL to create a link for
  * @param target Target of the link, _blank by default as originally defined in the svgDraw.js file
@@ -194,8 +221,10 @@ export const setLink = function (ids, linkStr, target) {
     if (_id[0].match(/\d/)) id = MERMAID_DOM_ID_PREFIX + id;
     if (typeof classes[id] !== 'undefined') {
       classes[id].link = utils.formatUrl(linkStr, config);
-      if (typeof target === 'string') {
-        classes[id].linkTarget = target;
+      if (config.securityLevel === 'sandbox') {
+        classes[id].linkTarget = '_top';
+      } else if (typeof target === 'string') {
+        classes[id].linkTarget = sanitizeText(target);
       } else {
         classes[id].linkTarget = '_blank';
       }
@@ -206,6 +235,7 @@ export const setLink = function (ids, linkStr, target) {
 
 /**
  * Called by parser when a click definition is found. Registers an event handler.
+ *
  * @param ids Comma separated list of ids
  * @param functionName Function to be called on click
  * @param functionArgs Function args the function should be called with
@@ -304,7 +334,7 @@ const setupToolTips = function (element) {
 
       tooltipElem.transition().duration(200).style('opacity', '.9');
       tooltipElem
-        .html(el.attr('title'))
+        .text(el.attr('title'))
         .style('left', window.scrollX + rect.left + (rect.right - rect.left) / 2 + 'px')
         .style('top', window.scrollY + rect.top - 14 + document.body.scrollTop + 'px');
       el.classed('hover', true);
@@ -325,6 +355,10 @@ const setDirection = (dir) => {
 
 export default {
   parseDirective,
+  setAccTitle,
+  getAccTitle,
+  getAccDescription,
+  setAccDescription,
   getConfig: () => configApi.getConfig().class,
   addClass,
   bindFunctions,

@@ -1,7 +1,8 @@
 import createLabel from '../createLabel';
 import { getConfig } from '../../config';
+import { decodeEntities } from '../../mermaidAPI';
 import { select } from 'd3';
-import { evaluate } from '../../diagrams/common/common';
+import { evaluate, sanitizeText } from '../../diagrams/common/common';
 export const labelHelper = (parent, node, _classes, isNode) => {
   let classes;
   if (!_classes) {
@@ -18,9 +19,18 @@ export const labelHelper = (parent, node, _classes, isNode) => {
   // Create the label and insert it after the rect
   const label = shapeSvg.insert('g').attr('class', 'label').attr('style', node.labelStyle);
 
+  const labelText = typeof node.labelText === 'string' ? node.labelText : node.labelText[0];
+
   const text = label
     .node()
-    .appendChild(createLabel(node.labelText, node.labelStyle, false, isNode));
+    .appendChild(
+      createLabel(
+        sanitizeText(decodeEntities(labelText), getConfig()),
+        node.labelStyle,
+        false,
+        isNode
+      )
+    );
 
   // Get the size of the label
   let bbox = text.getBBox();
@@ -47,6 +57,12 @@ export const updateNodeBounds = (node, element) => {
   node.height = bbox.height;
 };
 
+/**
+ * @param parent
+ * @param w
+ * @param h
+ * @param points
+ */
 export function insertPolygonShape(parent, w, h, points) {
   return parent
     .insert('polygon', ':first-child')

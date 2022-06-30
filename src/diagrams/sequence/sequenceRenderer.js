@@ -6,6 +6,7 @@ import common from '../common/common';
 import sequenceDb from './sequenceDb';
 import * as configApi from '../../config';
 import utils, { assignWithDepth, configureSvgSize } from '../../utils';
+import addSVGAccessibilityFields from '../../accessibility';
 
 parser.yy = sequenceDb;
 
@@ -97,6 +98,7 @@ export const bounds = {
   updateBounds: function (startx, starty, stopx, stopy) {
     const _self = this;
     let cnt = 0;
+    /** @param {any} type */
     function updateFn(type) {
       return function updateItemBounds(item) {
         cnt++;
@@ -198,8 +200,11 @@ export const bounds = {
 
 /**
  * Draws an note in the diagram with the attached line
- * @param elem - The diagram to draw to.
- * @param noteModel:{x: number, y: number, message: string, width: number} - startx: x axis start position, verticalPos: y axis position, messsage: the message to be shown, width: Set this with a custom width to override the default configured width.
+ *
+ * @param {any} elem - The diagram to draw to.
+ * @param {{ x: number; y: number; message: string; width: number }} noteModel - Startx: x axis
+ *   start position, verticalPos: y axis position, messsage: the message to be shown, width: Set
+ *   this with a custom width to override the default configured width.
  */
 const drawNote = function (elem, noteModel) {
   bounds.bumpVerticalPos(conf.boxMargin);
@@ -267,19 +272,65 @@ const actorFont = (cnf) => {
 };
 
 /**
- * Draws a message
- * @param g - the parent of the message element
- * @param msgModel - the model containing fields describing a message
+ * Process a message by adding its dimensions to the bound. It returns the Y coordinate of the
+ * message so it can be drawn later. We do not draw the message at this point so the arrowhead can
+ * be on top of the activation box.
+ *
+ * @param {any} diagram - The parent of the message element
+ * @param {any} msgModel - The model containing fields describing a message
+ * @returns {number} LineStarty - The Y coordinate at which the message line starts
  */
-const drawMessage = function (g, msgModel) {
+const boundMessage = function (diagram, msgModel) {
   bounds.bumpVerticalPos(10);
-  const { startx, stopx, starty, message, type, sequenceIndex } = msgModel;
+  const { startx, stopx, message } = msgModel;
   const lines = common.splitBreaks(message).length;
   let textDims = utils.calculateTextDimensions(message, messageFont(conf));
   const lineHeight = textDims.height / lines;
   msgModel.height += lineHeight;
 
   bounds.bumpVerticalPos(lineHeight);
+
+  let lineStarty;
+  let totalOffset = textDims.height - 10;
+  let textWidth = textDims.width;
+
+  if (startx === stopx) {
+    lineStarty = bounds.getVerticalPos() + totalOffset;
+    if (!conf.rightAngles) {
+      totalOffset += conf.boxMargin;
+      lineStarty = bounds.getVerticalPos() + totalOffset;
+    }
+    totalOffset += 30;
+    const dx = Math.max(textWidth / 2, conf.width / 2);
+    bounds.insert(
+      startx - dx,
+      bounds.getVerticalPos() - 10 + totalOffset,
+      stopx + dx,
+      bounds.getVerticalPos() + 30 + totalOffset
+    );
+  } else {
+    totalOffset += conf.boxMargin;
+    lineStarty = bounds.getVerticalPos() + totalOffset;
+    bounds.insert(startx, lineStarty - 10, stopx, lineStarty);
+  }
+  bounds.bumpVerticalPos(totalOffset);
+  msgModel.height += totalOffset;
+  msgModel.stopy = msgModel.starty + msgModel.height;
+  bounds.insert(msgModel.fromBounds, msgModel.starty, msgModel.toBounds, msgModel.stopy);
+
+  return lineStarty;
+};
+
+/**
+ * Draws a message. Note that the bounds have previously been updated by boundMessage.
+ *
+ * @param {any} diagram - The parent of the message element
+ * @param {any} msgModel - The model containing fields describing a message
+ * @param {float} lineStarty - The Y coordinate at which the message line starts
+ */
+const drawMessage = function (diagram, msgModel, lineStarty) {
+  const { startx, stopx, starty, message, type, sequenceIndex, sequenceVisible } = msgModel;
+  let textDims = utils.calculateTextDimensions(message, messageFont(conf));
   const textObj = svgDraw.getTextObj();
   textObj.x = startx;
   textObj.y = starty + 10;
@@ -295,17 +346,14 @@ const drawMessage = function (g, msgModel) {
   textObj.textMargin = conf.wrapPadding;
   textObj.tspan = false;
 
-  drawText(g, textObj);
-
-  let totalOffset = textDims.height - 10;
+  drawText(diagram, textObj);
 
   let textWidth = textDims.width;
 
-  let line, lineStarty;
+  let line;
   if (startx === stopx) {
-    lineStarty = bounds.getVerticalPos() + totalOffset;
     if (conf.rightAngles) {
-      line = g
+      line = diagram
         .append('path')
         .attr(
           'd',
@@ -314,10 +362,7 @@ const drawMessage = function (g, msgModel) {
           } H ${startx}`
         );
     } else {
-      totalOffset += conf.boxMargin;
-
-      lineStarty = bounds.getVerticalPos() + totalOffset;
-      line = g
+      line = diagram
         .append('path')
         .attr(
           'd',
@@ -339,24 +384,12 @@ const drawMessage = function (g, msgModel) {
             (lineStarty + 20)
         );
     }
-
-    totalOffset += 30;
-    const dx = Math.max(textWidth / 2, conf.width / 2);
-    bounds.insert(
-      startx - dx,
-      bounds.getVerticalPos() - 10 + totalOffset,
-      stopx + dx,
-      bounds.getVerticalPos() + 30 + totalOffset
-    );
   } else {
-    totalOffset += conf.boxMargin;
-    lineStarty = bounds.getVerticalPos() + totalOffset;
-    line = g.append('line');
+    line = diagram.append('line');
     line.attr('x1', startx);
     line.attr('y1', lineStarty);
     line.attr('x2', stopx);
     line.attr('y2', lineStarty);
-    bounds.insert(startx, lineStarty - 10, stopx, lineStarty);
   }
   // Make an SVG Container
   // Draw the line
@@ -399,25 +432,37 @@ const drawMessage = function (g, msgModel) {
   }
 
   // add node number
-  if (sequenceDb.showSequenceNumbers() || conf.showSequenceNumbers) {
+  if (sequenceVisible || conf.showSequenceNumbers) {
     line.attr('marker-start', 'url(' + url + '#sequencenumber)');
-    g.append('text')
+    diagram
+      .append('text')
       .attr('x', startx)
       .attr('y', lineStarty + 4)
       .attr('font-family', 'sans-serif')
       .attr('font-size', '12px')
       .attr('text-anchor', 'middle')
-      .attr('textLength', '16px')
       .attr('class', 'sequenceNumber')
       .text(sequenceIndex);
   }
-  bounds.bumpVerticalPos(totalOffset);
-  msgModel.height += totalOffset;
-  msgModel.stopy = msgModel.starty + msgModel.height;
-  bounds.insert(msgModel.fromBounds, msgModel.starty, msgModel.toBounds, msgModel.stopy);
 };
 
-export const drawActors = function (diagram, actors, actorKeys, verticalPos) {
+export const drawActors = function (
+  diagram,
+  actors,
+  actorKeys,
+  verticalPos,
+  configuration,
+  messages
+) {
+  if (configuration.hideUnusedParticipants === true) {
+    const newActors = new Set();
+    messages.forEach((message) => {
+      newActors.add(message.from);
+      newActors.add(message.to);
+    });
+    actorKeys = actorKeys.filter((actorKey) => newActors.has(actorKey));
+  }
+
   // Draw the actors
   let prevWidth = 0;
   let prevMargin = 0;
@@ -447,13 +492,20 @@ export const drawActors = function (diagram, actors, actorKeys, verticalPos) {
   bounds.bumpVerticalPos(maxHeight);
 };
 
-export const drawActorsPopup = function (diagram, actors, actorKeys) {
+export const drawActorsPopup = function (diagram, actors, actorKeys, doc) {
   var maxHeight = 0;
   var maxWidth = 0;
   for (let i = 0; i < actorKeys.length; i++) {
     const actor = actors[actorKeys[i]];
     const minMenuWidth = getRequiredPopupWidth(actor);
-    var menuDimensions = svgDraw.drawPopup(diagram, actor, minMenuWidth, conf, conf.forceMenus);
+    var menuDimensions = svgDraw.drawPopup(
+      diagram,
+      actor,
+      minMenuWidth,
+      conf,
+      conf.forceMenus,
+      doc
+    );
     if (menuDimensions.height > maxHeight) {
       maxHeight = menuDimensions.height;
     }
@@ -499,6 +551,13 @@ const activationBounds = function (actor, actors) {
   return [left, right];
 };
 
+/**
+ * @param {any} loopWidths
+ * @param {any} msg
+ * @param {any} preMargin
+ * @param {any} postMargin
+ * @param {any} addLoopFn
+ */
 function adjustLoopHeightForWrap(loopWidths, msg, preMargin, postMargin, addLoopFn) {
   bounds.bumpVerticalPos(preMargin);
   let heightAdjust = postMargin;
@@ -521,24 +580,38 @@ function adjustLoopHeightForWrap(loopWidths, msg, preMargin, postMargin, addLoop
 
 /**
  * Draws a sequenceDiagram in the tag with id: id based on the graph definition in text.
- * @param text
- * @param id
+ *
+ * @param {any} text
+ * @param {any} id
  */
 export const draw = function (text, id) {
   conf = configApi.getConfig().sequence;
+  const securityLevel = configApi.getConfig().securityLevel;
+  // Handle root and Document for when rendering in sanbox mode
+  let sandboxElement;
+  if (securityLevel === 'sandbox') {
+    sandboxElement = select('#i' + id);
+  }
+  const root =
+    securityLevel === 'sandbox'
+      ? select(sandboxElement.nodes()[0].contentDocument.body)
+      : select('body');
+  const doc = securityLevel === 'sandbox' ? sandboxElement.nodes()[0].contentDocument : document;
+
   parser.yy.clear();
   parser.yy.setWrap(conf.wrap);
   parser.parse(text + '\n');
   bounds.init();
   log.debug(`C:${JSON.stringify(conf, null, 2)}`);
 
-  const diagram = select(`[id="${id}"]`);
+  const diagram =
+    securityLevel === 'sandbox' ? root.select(`[id="${id}"]`) : select(`[id="${id}"]`);
 
   // Fetch data from the parsing
   const actors = parser.yy.getActors();
   const actorKeys = parser.yy.getActorKeys();
   const messages = parser.yy.getMessages();
-  const title = parser.yy.getTitle();
+  const title = parser.yy.getDiagramTitle();
 
   const maxMessageWidthPerActor = getMaxMessageWidthPerActor(actors, messages);
   conf.height = calculateActorMargins(actors, maxMessageWidthPerActor);
@@ -547,7 +620,7 @@ export const draw = function (text, id) {
   svgDraw.insertDatabaseIcon(diagram);
   svgDraw.insertClockIcon(diagram);
 
-  drawActors(diagram, actors, actorKeys, 0);
+  drawActors(diagram, actors, actorKeys, 0, conf, messages);
   const loopWidths = calculateLoopBounds(messages, actors, maxMessageWidthPerActor);
 
   // The arrow head definition is attached to the svg once
@@ -556,6 +629,10 @@ export const draw = function (text, id) {
   svgDraw.insertArrowFilledHead(diagram);
   svgDraw.insertSequenceNumber(diagram);
 
+  /**
+   * @param {any} msg
+   * @param {any} verticalPos
+   */
   function activeEnd(msg, verticalPos) {
     const activationData = bounds.endActivation(msg);
     if (activationData.starty + 18 > verticalPos) {
@@ -575,6 +652,8 @@ export const draw = function (text, id) {
 
   // Draw the messages/signals
   let sequenceIndex = 1;
+  let sequenceIndexStep = 1;
+  let messagesToDraw = Array();
   messages.forEach(function (msg) {
     let loopModel, noteModel, msgModel;
 
@@ -678,18 +757,66 @@ export const draw = function (text, id) {
         bounds.bumpVerticalPos(loopModel.stopy - bounds.getVerticalPos());
         bounds.models.addLoop(loopModel);
         break;
+      case parser.yy.LINETYPE.AUTONUMBER:
+        sequenceIndex = msg.message.start || sequenceIndex;
+        sequenceIndexStep = msg.message.step || sequenceIndexStep;
+        if (msg.message.visible) parser.yy.enableSequenceNumbers();
+        else parser.yy.disableSequenceNumbers();
+        break;
+      case parser.yy.LINETYPE.CRITICAL_START:
+        adjustLoopHeightForWrap(
+          loopWidths,
+          msg,
+          conf.boxMargin,
+          conf.boxMargin + conf.boxTextMargin,
+          (message) => bounds.newLoop(message)
+        );
+        break;
+      case parser.yy.LINETYPE.CRITICAL_OPTION:
+        adjustLoopHeightForWrap(
+          loopWidths,
+          msg,
+          conf.boxMargin + conf.boxTextMargin,
+          conf.boxMargin,
+          (message) => bounds.addSectionToLoop(message)
+        );
+        break;
+      case parser.yy.LINETYPE.CRITICAL_END:
+        loopModel = bounds.endLoop();
+        svgDraw.drawLoop(diagram, loopModel, 'critical', conf);
+        bounds.bumpVerticalPos(loopModel.stopy - bounds.getVerticalPos());
+        bounds.models.addLoop(loopModel);
+        break;
+      case parser.yy.LINETYPE.BREAK_START:
+        adjustLoopHeightForWrap(
+          loopWidths,
+          msg,
+          conf.boxMargin,
+          conf.boxMargin + conf.boxTextMargin,
+          (message) => bounds.newLoop(message)
+        );
+        break;
+      case parser.yy.LINETYPE.BREAK_END:
+        loopModel = bounds.endLoop();
+        svgDraw.drawLoop(diagram, loopModel, 'break', conf);
+        bounds.bumpVerticalPos(loopModel.stopy - bounds.getVerticalPos());
+        bounds.models.addLoop(loopModel);
+        break;
       default:
         try {
           // lastMsg = msg
           msgModel = msg.msgModel;
           msgModel.starty = bounds.getVerticalPos();
           msgModel.sequenceIndex = sequenceIndex;
-          drawMessage(diagram, msgModel);
+          msgModel.sequenceVisible = parser.yy.showSequenceNumbers();
+          let lineStarty = boundMessage(diagram, msgModel);
+          messagesToDraw.push({ messageModel: msgModel, lineStarty: lineStarty });
           bounds.models.addMessage(msgModel);
         } catch (e) {
           log.error('error while drawing message', e);
         }
     }
+
     // Increment sequence counter if msg.type is a line (and not another event like activation or note, etc)
     if (
       [
@@ -703,20 +830,22 @@ export const draw = function (text, id) {
         parser.yy.LINETYPE.DOTTED_POINT,
       ].includes(msg.type)
     ) {
-      sequenceIndex++;
+      sequenceIndex = sequenceIndex + sequenceIndexStep;
     }
   });
+
+  messagesToDraw.forEach((e) => drawMessage(diagram, e.messageModel, e.lineStarty));
 
   if (conf.mirrorActors) {
     // Draw actors below diagram
     bounds.bumpVerticalPos(conf.boxMargin * 2);
-    drawActors(diagram, actors, actorKeys, bounds.getVerticalPos());
+    drawActors(diagram, actors, actorKeys, bounds.getVerticalPos(), conf, messages);
     bounds.bumpVerticalPos(conf.boxMargin);
     fixLifeLineHeights(diagram, bounds.getVerticalPos());
   }
 
   // only draw popups for the top row of actors.
-  var requiredBoxSize = drawActorsPopup(diagram, actors, actorKeys);
+  var requiredBoxSize = drawActorsPopup(diagram, actors, actorKeys, doc);
 
   const { bounds: box } = bounds.getBounds();
 
@@ -765,18 +894,20 @@ export const draw = function (text, id) {
       ' ' +
       (height + extraVertForTitle)
   );
+
+  addSVGAccessibilityFields(parser.yy, diagram, id);
   log.debug(`models:`, bounds.models);
 };
 
 /**
- * Retrieves the max message width of each actor, supports signals (messages, loops)
- * and notes.
+ * Retrieves the max message width of each actor, supports signals (messages, loops) and notes.
  *
- * It will enumerate each given message, and will determine its text width, in relation
- * to the actor it originates from, and destined to.
+ * It will enumerate each given message, and will determine its text width, in relation to the actor
+ * it originates from, and destined to.
  *
- * @param actors - The actors map
- * @param messages - A list of message objects to iterate
+ * @param {any} actors - The actors map
+ * @param {Array} messages - A list of message objects to iterate
+ * @returns {any}
  */
 const getMaxMessageWidthPerActor = function (actors, messages) {
   const maxMessageWidthPerActor = {};
@@ -888,14 +1019,13 @@ const getRequiredPopupWidth = function (actor) {
 };
 
 /**
- * This will calculate the optimal margin for each given actor, for a given
- * actor->messageWidth map.
+ * This will calculate the optimal margin for each given actor, for a given actor->messageWidth map.
  *
- * An actor's margin is determined by the width of the actor, the width of the
- * largest message that originates from it, and the configured conf.actorMargin.
+ * An actor's margin is determined by the width of the actor, the width of the largest message that
+ * originates from it, and the configured conf.actorMargin.
  *
- * @param actors - The actors map to calculate margins for
- * @param actorToMessageWidth - A map of actor key -> max message width it holds
+ * @param {any} actors - The actors map to calculate margins for
+ * @param {any} actorToMessageWidth - A map of actor key -> max message width it holds
  */
 const calculateActorMargins = function (actors, actorToMessageWidth) {
   let maxHeight = 0;
@@ -1074,6 +1204,8 @@ const calculateLoopBounds = function (messages, actors) {
       case parser.yy.LINETYPE.ALT_START:
       case parser.yy.LINETYPE.OPT_START:
       case parser.yy.LINETYPE.PAR_START:
+      case parser.yy.LINETYPE.CRITICAL_START:
+      case parser.yy.LINETYPE.BREAK_START:
         stack.push({
           id: msg.id,
           msg: msg.message,
@@ -1084,6 +1216,7 @@ const calculateLoopBounds = function (messages, actors) {
         break;
       case parser.yy.LINETYPE.ALT_ELSE:
       case parser.yy.LINETYPE.PAR_AND:
+      case parser.yy.LINETYPE.CRITICAL_OPTION:
         if (msg.message) {
           current = stack.pop();
           loops[current.id] = current;
@@ -1095,6 +1228,8 @@ const calculateLoopBounds = function (messages, actors) {
       case parser.yy.LINETYPE.ALT_END:
       case parser.yy.LINETYPE.OPT_END:
       case parser.yy.LINETYPE.PAR_END:
+      case parser.yy.LINETYPE.CRITICAL_END:
+      case parser.yy.LINETYPE.BREAK_END:
         current = stack.pop();
         loops[current.id] = current;
         break;

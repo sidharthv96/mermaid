@@ -3,10 +3,14 @@ const path = require('path');
 module.exports = {
   testEnvironment: 'jsdom',
   transform: {
-    '^.+\\.jsx?$': './transformer.js',
-    '^.+\\.jison$': path.resolve(__dirname, './jisonTransformer.js'),
+    '^.+\\.jsx?$': ['babel-jest', { rootMode: 'upward' }],
+    '^.+\\.jison$': [
+      path.resolve(__dirname, './src/jison/transformer.js'),
+      { 'token-stack': true },
+    ],
   },
-  transformIgnorePatterns: ['/node_modules/(?!dagre-d3-renderer/lib).*\\.js'],
+  transformIgnorePatterns: ['/node_modules/(?!dagre-d3-renderer/lib|khroma).*\\.js'],
+  testPathIgnorePatterns: ['/node_modules/', '.cache'],
   moduleNameMapper: {
     '\\.(css|scss)$': 'identity-obj-proxy',
   },

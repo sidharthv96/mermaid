@@ -1,13 +1,23 @@
 import mermaidAPI from '../../mermaidAPI';
 import * as configApi from '../../config';
 import { log } from '../../logger';
+import { sanitizeText } from '../common/common';
+import {
+  setAccTitle,
+  getAccTitle,
+  setDiagramTitle,
+  getDiagramTitle,
+  getAccDescription,
+  setAccDescription,
+  clear as commonClear,
+} from '../../commonDb';
 
 let prevActor = undefined;
 let actors = {};
 let messages = [];
 const notes = [];
-let title = '';
-let titleWrapped = false;
+let diagramTitle = '';
+let description = '';
 let sequenceNumbersEnabled = false;
 let wrapEnabled = false;
 
@@ -118,14 +128,11 @@ export const getActor = function (id) {
 export const getActorKeys = function () {
   return Object.keys(actors);
 };
-export const getTitle = function () {
-  return title;
-};
-export const getTitleWrapped = function () {
-  return titleWrapped;
-};
 export const enableSequenceNumbers = function () {
   sequenceNumbersEnabled = true;
+};
+export const disableSequenceNumbers = function () {
+  sequenceNumbersEnabled = false;
 };
 export const showSequenceNumbers = () => sequenceNumbersEnabled;
 
@@ -138,6 +145,9 @@ export const autoWrap = () => wrapEnabled;
 export const clear = function () {
   actors = {};
   messages = [];
+  sequenceNumbersEnabled = false;
+  diagramTitle = '';
+  commonClear();
 };
 
 export const parseMessage = function (str) {
@@ -179,6 +189,12 @@ export const LINETYPE = {
   RECT_END: 23,
   SOLID_POINT: 24,
   DOTTED_POINT: 25,
+  AUTONUMBER: 26,
+  CRITICAL_START: 27,
+  CRITICAL_OPTION: 28,
+  CRITICAL_END: 29,
+  BREAK_START: 30,
+  BREAK_END: 31,
 };
 
 export const ARROWTYPE = {
@@ -219,7 +235,10 @@ export const addLinks = function (actorId, text) {
   const actor = getActor(actorId);
   // JSON.parse the text
   try {
-    const links = JSON.parse(text.text);
+    let sanitizedText = sanitizeText(text.text, configApi.getConfig());
+    sanitizedText = sanitizedText.replace(/&amp;/g, '&');
+    sanitizedText = sanitizedText.replace(/&equals;/g, '=');
+    const links = JSON.parse(sanitizedText);
     // add the deserialized text to the actor's links field.
     insertLinks(actor, links);
   } catch (e) {
@@ -232,9 +251,12 @@ export const addALink = function (actorId, text) {
   const actor = getActor(actorId);
   try {
     const links = {};
-    var sep = text.text.indexOf('@');
-    var label = text.text.slice(0, sep - 1).trim();
-    var link = text.text.slice(sep + 1).trim();
+    let sanitizedText = sanitizeText(text.text, configApi.getConfig());
+    var sep = sanitizedText.indexOf('@');
+    sanitizedText = sanitizedText.replace(/&amp;/g, '&');
+    sanitizedText = sanitizedText.replace(/&equals;/g, '=');
+    var label = sanitizedText.slice(0, sep - 1).trim();
+    var link = sanitizedText.slice(sep + 1).trim();
 
     links[label] = link;
     // add the deserialized text to the actor's links field.
@@ -244,6 +266,10 @@ export const addALink = function (actorId, text) {
   }
 };
 
+/**
+ * @param {any} actor
+ * @param {any} links
+ */
 function insertLinks(actor, links) {
   if (actor.links == null) {
     actor.links = links;
@@ -259,7 +285,8 @@ export const addProperties = function (actorId, text) {
   const actor = getActor(actorId);
   // JSON.parse the text
   try {
-    const properties = JSON.parse(text.text);
+    let sanitizedText = sanitizeText(text.text, configApi.getConfig());
+    const properties = JSON.parse(sanitizedText);
     // add the deserialized text to the actor's property field.
     insertProperties(actor, properties);
   } catch (e) {
@@ -267,6 +294,10 @@ export const addProperties = function (actorId, text) {
   }
 };
 
+/**
+ * @param {any} actor
+ * @param {any} properties
+ */
 function insertProperties(actor, properties) {
   if (actor.properties == null) {
     actor.properties = properties;
@@ -307,11 +338,6 @@ export const getActorProperty = function (actor, key) {
   return undefined;
 };
 
-export const setTitle = function (titleWrap) {
-  title = titleWrap.text;
-  titleWrapped = (titleWrap.wrap === undefined && autoWrap()) || !!titleWrap.wrap;
-};
-
 export const apply = function (param) {
   if (param instanceof Array) {
     param.forEach(function (item) {
@@ -319,6 +345,19 @@ export const apply = function (param) {
     });
   } else {
     switch (param.type) {
+      case 'sequenceIndex':
+        messages.push({
+          from: undefined,
+          to: undefined,
+          message: {
+            start: param.sequenceIndex,
+            step: param.sequenceIndexStep,
+            visible: param.sequenceVisible,
+          },
+          wrap: false,
+          type: param.signalType,
+        });
+        break;
       case 'addParticipant':
         addActor(param.actor, param.actor, param.description, 'participant');
         break;
@@ -376,8 +415,8 @@ export const apply = function (param) {
       case 'altEnd':
         addSignal(undefined, undefined, undefined, param.signalType);
         break;
-      case 'setTitle':
-        setTitle(param.text);
+      case 'setAccTitle':
+        setAccTitle(param.text);
         break;
       case 'parStart':
         addSignal(undefined, undefined, param.parText, param.signalType);
@@ -386,6 +425,21 @@ export const apply = function (param) {
         addSignal(undefined, undefined, param.parText, param.signalType);
         break;
       case 'parEnd':
+        addSignal(undefined, undefined, undefined, param.signalType);
+        break;
+      case 'criticalStart':
+        addSignal(undefined, undefined, param.criticalText, param.signalType);
+        break;
+      case 'option':
+        addSignal(undefined, undefined, param.optionText, param.signalType);
+        break;
+      case 'criticalEnd':
+        addSignal(undefined, undefined, undefined, param.signalType);
+        break;
+      case 'breakStart':
+        addSignal(undefined, undefined, param.breakText, param.signalType);
+        break;
+      case 'breakEnd':
         addSignal(undefined, undefined, undefined, param.signalType);
         break;
     }
@@ -402,22 +456,26 @@ export default {
   autoWrap,
   setWrap,
   enableSequenceNumbers,
+  disableSequenceNumbers,
   showSequenceNumbers,
   getMessages,
   getActors,
   getActor,
   getActorKeys,
   getActorProperty,
-  getTitle,
+  getAccTitle,
+  getDiagramTitle,
+  setDiagramTitle,
   parseDirective,
   getConfig: () => configApi.getConfig().sequence,
-  getTitleWrapped,
   clear,
   parseMessage,
   LINETYPE,
   ARROWTYPE,
   PLACEMENT,
   addNote,
-  setTitle,
+  setAccTitle,
   apply,
+  setAccDescription,
+  getAccDescription,
 };

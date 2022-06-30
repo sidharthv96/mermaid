@@ -7,6 +7,9 @@
 /* lexical grammar */
 %lex
 %x string
+%x acc_title
+%x acc_descr
+%x acc_descr_multiline
 %x dir
 %x vertex
 %x click
@@ -26,6 +29,14 @@
 <arg_directive>((?:(?!\}\%\%).|\n)*)                            return 'arg_directive';
 \%\%(?!\{)[^\n]*                                                /* skip comments */
 [^\}]\%\%[^\n]*                                                 /* skip comments */
+accTitle\s*":"\s*                                               { this.begin("acc_title");return 'acc_title'; }
+<acc_title>(?!\n|;|#)*[^\n]*                                    { this.popState(); return "acc_title_value"; }
+accDescr\s*":"\s*                                               { this.begin("acc_descr");return 'acc_descr'; }
+<acc_descr>(?!\n|;|#)*[^\n]*                                    { this.popState(); return "acc_descr_value"; }
+accDescr\s*"{"\s*                                { this.begin("acc_descr_multiline");}
+<acc_descr_multiline>[\}]                       { this.popState(); }
+<acc_descr_multiline>[^\}]*                     return "acc_descr_multiline_value";
+// <acc_descr_multiline>.*[^\n]*                    {  return "acc_descr_line"}
 ["]                     this.begin("string");
 <string>["]             this.popState();
 <string>[^"]*           return "STR";
@@ -118,8 +129,11 @@ that id.
 "])"                  return 'STADIUMEND';
 "[["                  return 'SUBROUTINESTART';
 "]]"                  return 'SUBROUTINEEND';
+"[|"                  return 'VERTEX_WITH_PROPS_START';
 "[("                  return 'CYLINDERSTART';
 ")]"                  return 'CYLINDEREND';
+"((("                 return 'DOUBLECIRCLESTART';
+")))"                 return 'DOUBLECIRCLEEND';
 \-                    return 'MINUS';
 "."                   return 'DOT';
 [\_]                  return 'UNDERSCORE';
@@ -334,24 +348,12 @@ statement
     | subgraph separator document end
     {$$=yy.addSubGraph(undefined,$3,undefined);}
     | direction
+    | acc_title acc_title_value  { $$=$2.trim();yy.setAccTitle($$); }
+    | acc_descr acc_descr_value  { $$=$2.trim();yy.setAccDescription($$); }
+    | acc_descr_multiline_value { $$=$1.trim();yy.setAccDescription($$); }
     ;
 
 separator: NEWLINE | SEMI | EOF ;
-
-// verticeStatement:
-//     vertex link vertex
-//         { yy.addLink($1,$3,$2);$$ = [$1,$3];}
-//     | vertex link vertex STYLE_SEPARATOR idString
-//        { yy.addLink($1,$3,$2);$$ = [$1,$3];yy.setClass($3,$5);}
-//     | vertex STYLE_SEPARATOR idString link vertex
-//        { yy.addLink($1,$5,$4);$$ = [$1,$5];yy.setClass($1,$3);}
-//     | vertex STYLE_SEPARATOR idString link vertex STYLE_SEPARATOR idString
-//        { yy.addLink($1,$5,$4);$$ = [$1,$5];yy.setClass($5,$7);yy.setClass($1,$3);}
-//     |vertex
-//         {$$ = [$1];}
-//     |vertex STYLE_SEPARATOR idString
-//         {$$ = [$1];yy.setClass($1,$3)}
-//    ;
 
 
 verticeStatement: verticeStatement link node
@@ -372,6 +374,8 @@ node: vertex
 
 vertex:  idString SQS text SQE
         {$$ = $1;yy.addVertex($1,$3,'square');}
+    | idString DOUBLECIRCLESTART text DOUBLECIRCLEEND
+        {$$ = $1;yy.addVertex($1,$3,'doublecircle');}
     | idString PS PS text PE PE
         {$$ = $1;yy.addVertex($1,$4,'circle');}
     | idString '(-' text '-)'
@@ -380,6 +384,8 @@ vertex:  idString SQS text SQE
         {$$ = $1;yy.addVertex($1,$3,'stadium');}
     | idString SUBROUTINESTART text SUBROUTINEEND
         {$$ = $1;yy.addVertex($1,$3,'subroutine');}
+    | idString VERTEX_WITH_PROPS_START ALPHA COLON ALPHA PIPE text SQE
+        {$$ = $1;yy.addVertex($1,$7,'rect',undefined,undefined,undefined, Object.fromEntries([[$3, $5]]));}
     | idString CYLINDERSTART text CYLINDEREND
         {$$ = $1;yy.addVertex($1,$3,'cylinder');}
     | idString PS text PE
@@ -557,7 +563,7 @@ direction
 
 alphaNumToken  : PUNCTUATION | AMP | UNICODE_TEXT | NUM| ALPHA | COLON | COMMA | PLUS | EQUALS | MULT | DOT | BRKT| UNDERSCORE ;
 
-idStringToken  : ALPHA|UNDERSCORE |UNICODE_TEXT | NUM|  COLON | COMMA | PLUS | MINUS | DOWN |EQUALS | MULT | BRKT | DOT | PUNCTUATION | AMP;
+idStringToken  : ALPHA|UNDERSCORE |UNICODE_TEXT | NUM|  COLON | COMMA | PLUS | MINUS | DOWN |EQUALS | MULT | BRKT | DOT | PUNCTUATION | AMP | DEFAULT;
 
-graphCodeTokens: STADIUMSTART | STADIUMEND | SUBROUTINESTART | SUBROUTINEEND | CYLINDERSTART | CYLINDEREND | TRAPSTART | TRAPEND | INVTRAPSTART | INVTRAPEND | PIPE | PS | PE | SQS | SQE | DIAMOND_START | DIAMOND_STOP | TAGSTART | TAGEND | ARROW_CROSS | ARROW_POINT | ARROW_CIRCLE | ARROW_OPEN | QUOTE | SEMI;
+graphCodeTokens: STADIUMSTART | STADIUMEND | SUBROUTINESTART | SUBROUTINEEND | VERTEX_WITH_PROPS_START | CYLINDERSTART | CYLINDEREND | TRAPSTART | TRAPEND | INVTRAPSTART | INVTRAPEND | PIPE | PS | PE | SQS | SQE | DIAMOND_START | DIAMOND_STOP | TAGSTART | TAGEND | ARROW_CROSS | ARROW_POINT | ARROW_CIRCLE | ARROW_OPEN | QUOTE | SEMI;
 %%

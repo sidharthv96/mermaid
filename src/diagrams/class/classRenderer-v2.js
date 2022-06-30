@@ -9,13 +9,16 @@ import { getConfig } from '../../config';
 import { render } from '../../dagre-wrapper/index.js';
 // import addHtmlLabel from 'dagre-d3/lib/label/add-html-label.js';
 import { curveLinear } from 'd3';
-import { interpolateToCurve, getStylesFromArray, configureSvgSize } from '../../utils';
+import { interpolateToCurve, getStylesFromArray, setupGraphViewbox } from '../../utils';
 import common from '../common/common';
+import addSVGAccessibilityFields from '../../accessibility';
 
 parser.yy = classDb;
 
 let idCache = {};
 const padding = 20;
+
+const sanitizeText = (txt) => common.sanitizeText(txt, getConfig());
 
 const conf = {
   dividerMargin: 10,
@@ -25,8 +28,13 @@ const conf = {
 
 /**
  * Function that adds the vertices found during parsing to the graph to be rendered.
- * @param vert Object containing the vertices.
- * @param g The graph that is to be drawn.
+ *
+ * @param {Object<
+ *   string,
+ *   { cssClasses: string[]; text: string; id: string; type: string; domId: string }
+ * >} classes
+ *   Object containing the vertices.
+ * @param {SVGGElement} g The graph that is to be drawn.
  */
 export const addClasses = function (classes, g) {
   // const svg = select(`[id="${svgId}"]`);
@@ -40,6 +48,7 @@ export const addClasses = function (classes, g) {
 
     /**
      * Variable for storing the classes for the vertex
+     *
      * @type {string}
      */
     let cssClassStr = '';
@@ -97,7 +106,7 @@ export const addClasses = function (classes, g) {
     g.setNode(vertex.id, {
       labelStyle: styles.labelStyle,
       shape: _shape,
-      labelText: vertexText,
+      labelText: sanitizeText(vertexText),
       classData: vertex,
       rx: radious,
       ry: radious,
@@ -129,9 +138,10 @@ export const addClasses = function (classes, g) {
 };
 
 /**
- * Add edges to graph based on parsed graph defninition
- * @param {Object} edges The edges to add to the graph
- * @param {Object} g The graph object
+ * Add edges to graph based on parsed graph definition
+ *
+ * @param relations
+ * @param {object} g The graph object
  */
 export const addRelations = function (relations, g) {
   let cnt = 0;
@@ -207,7 +217,8 @@ export const addRelations = function (relations, g) {
       edgeData.arrowheadStyle = 'fill: #333';
       edgeData.labelpos = 'c';
 
-      if (getConfig().flowchart.htmlLabels) { // eslint-disable-line
+      if (getConfig().flowchart.htmlLabels) {
+        // eslint-disable-line
         edgeData.labelType = 'html';
         edgeData.label = '<span class="edgeLabel">' + edge.text + '</span>';
       } else {
@@ -226,19 +237,25 @@ export const addRelations = function (relations, g) {
   });
 };
 
-// Todo optimize
+/**
+ * Gets the ID with the same label as in the cache
+ *
+ * @param {string} label The label to look for
+ * @returns {string} The resulting ID
+ */
 const getGraphId = function (label) {
-  const keys = Object.keys(idCache);
+  const foundEntry = Object.entries(idCache).find((entry) => entry[1].label === label);
 
-  for (let i = 0; i < keys.length; i++) {
-    if (idCache[keys[i]].label === label) {
-      return keys[i];
-    }
+  if (foundEntry) {
+    return foundEntry[0];
   }
-
-  return undefined;
 };
 
+/**
+ * Merges the value of `conf` with the passed `cnf`
+ *
+ * @param {object} cnf Config to merge
+ */
 export const setConf = function (cnf) {
   const keys = Object.keys(cnf);
 
@@ -249,104 +266,12 @@ export const setConf = function (cnf) {
 
 /**
  * Draws a flowchart in the tag with id: id based on the graph definition in text.
- * @param text
- * @param id
+ *
+ * @param {string} text
+ * @param {string} id
  */
-export const drawOld = function (text, id) {
-  idCache = {};
-  parser.yy.clear();
-  parser.parse(text);
-
-  log.info('Rendering diagram ' + text);
-
-  // Fetch the default direction, use TD if none was found
-  const diagram = select(`[id='${id}']`);
-  // insertMarkers(diagram);
-
-  // Layout graph, Create a new directed graph
-  const g = new graphlib.Graph({
-    multigraph: true,
-  });
-
-  // Set an object for the graph label
-  g.setGraph({
-    isMultiGraph: true,
-  });
-
-  // Default to assigning a new object as a label for each new edge.
-  g.setDefaultEdgeLabel(function () {
-    return {};
-  });
-
-  const classes = classDb.getClasses();
-  log.info('classes:');
-  log.info(classes);
-  const keys = Object.keys(classes);
-  for (let i = 0; i < keys.length; i++) {
-    const classDef = classes[keys[i]];
-    const node = svgDraw.drawClass(diagram, classDef, conf);
-    idCache[node.id] = node;
-
-    // Add nodes to the graph. The first argument is the node id. The second is
-    // metadata about the node. In this case we're going to add labels to each of
-    // our nodes.
-    g.setNode(node.id, node);
-
-    log.info('Org height: ' + node.height);
-  }
-
-  const relations = classDb.getRelations();
-  log.info('relations:', relations);
-  relations.forEach(function (relation) {
-    log.info(
-      'tjoho' + getGraphId(relation.id1) + getGraphId(relation.id2) + JSON.stringify(relation)
-    );
-    g.setEdge(
-      getGraphId(relation.id1),
-      getGraphId(relation.id2),
-      {
-        relation: relation,
-      },
-      relation.title || 'DEFAULT'
-    );
-  });
-
-  dagre.layout(g);
-  g.nodes().forEach(function (v) {
-    if (typeof v !== 'undefined' && typeof g.node(v) !== 'undefined') {
-      log.debug('Node ' + v + ': ' + JSON.stringify(g.node(v)));
-      select('#' + lookUpDomId(v)).attr(
-        'transform',
-        'translate(' +
-          (g.node(v).x - g.node(v).width / 2) +
-          ',' +
-          (g.node(v).y - g.node(v).height / 2) +
-          ' )'
-      );
-    }
-  });
-
-  g.edges().forEach(function (e) {
-    if (typeof e !== 'undefined' && typeof g.edge(e) !== 'undefined') {
-      log.debug('Edge ' + e.v + ' -> ' + e.w + ': ' + JSON.stringify(g.edge(e)));
-      svgDraw.drawEdge(diagram, g.edge(e), g.edge(e).relation, conf);
-    }
-  });
-
-  const svgBounds = diagram.node().getBBox();
-  const width = svgBounds.width + padding * 2;
-  const height = svgBounds.height + padding * 2;
-
-  configureSvgSize(diagram, height, width, conf.useMaxWidth);
-
-  // Ensure the viewBox includes the whole svgBounds area with extra space for padding
-  const vBox = `${svgBounds.x - padding} ${svgBounds.y - padding} ${width} ${height}`;
-  log.debug(`viewBox ${vBox}`);
-  diagram.attr('viewBox', vBox);
-};
-
 export const draw = function (text, id) {
-  log.info('Drawing class');
+  log.info('Drawing class - ', id);
   classDb.clear();
   // const parser = classDb.parser;
   // parser.yy = classDb;
@@ -362,6 +287,7 @@ export const draw = function (text, id) {
   //let dir = 'TD';
 
   const conf = getConfig().flowchart;
+  const securityLevel = getConfig().securityLevel;
   log.info('config:', conf);
   const nodeSpacing = conf.nodeSpacing || 50;
   const rankSpacing = conf.rankSpacing || 50;
@@ -391,21 +317,11 @@ export const draw = function (text, id) {
   //   flowDb.addVertex(subG.id, subG.title, 'group', undefined, subG.classes);
   // }
 
-  // Fetch the verices/nodes and edges/links from the parsed graph definition
+  // Fetch the vertices/nodes and edges/links from the parsed graph definition
   const classes = classDb.getClasses();
   const relations = classDb.getRelations();
 
   log.info(relations);
-  // let i = 0;
-  // for (i = subGraphs.length - 1; i >= 0; i--) {
-  //   subG = subGraphs[i];
-
-  //   selectAll('cluster').append('text');
-
-  //   for (let j = 0; j < subG.nodes.length; j++) {
-  //     g.setParent(subG.nodes[j], subG.id);
-  //   }
-  // }
   addClasses(classes, g, id);
   addRelations(relations, g);
 
@@ -413,46 +329,34 @@ export const draw = function (text, id) {
   // flowChartShapes.addToRenderV2(addShape);
 
   // Set up an SVG group so that we can translate the final graph.
-  const svg = select(`[id="${id}"]`);
+  let sandboxElement;
+  if (securityLevel === 'sandbox') {
+    sandboxElement = select('#i' + id);
+  }
+  const root =
+    securityLevel === 'sandbox'
+      ? select(sandboxElement.nodes()[0].contentDocument.body)
+      : select('body');
+  const svg = root.select(`[id="${id}"]`);
   svg.attr('xmlns:xlink', 'http://www.w3.org/1999/xlink');
 
   // Run the renderer. This is what draws the final graph.
-  const element = select('#' + id + ' g');
+  const element = root.select('#' + id + ' g');
   render(element, g, ['aggregation', 'extension', 'composition', 'dependency'], 'classDiagram', id);
 
-  // element.selectAll('g.node').attr('title', function() {
-  //   return flowDb.getTooltip(this.id);
-  // });
-
-  const padding = 8;
-  const svgBounds = svg.node().getBBox();
-  const width = svgBounds.width + padding * 2;
-  const height = svgBounds.height + padding * 2;
-  log.debug(
-    `new ViewBox 0 0 ${width} ${height}`,
-    `translate(${padding - g._label.marginx}, ${padding - g._label.marginy})`
-  );
-
-  configureSvgSize(svg, height, width, conf.useMaxWidth);
-
-  svg.attr('viewBox', `0 0 ${width} ${height}`);
-  svg
-    .select('g')
-    .attr('transform', `translate(${padding - g._label.marginx}, ${padding - svgBounds.y})`);
-
-  // Index nodes
-  // flowDb.indexNodes('subGraph' + i);
+  setupGraphViewbox(g, svg, conf.diagramPadding, conf.useMaxWidth);
 
   // Add label rects for non html labels
   if (!conf.htmlLabels) {
-    const labels = document.querySelectorAll('[id="' + id + '"] .edgeLabel .label');
+    const doc = securityLevel === 'sandbox' ? sandboxElement.nodes()[0].contentDocument : document;
+    const labels = doc.querySelectorAll('[id="' + id + '"] .edgeLabel .label');
     for (let k = 0; k < labels.length; k++) {
       const label = labels[k];
 
       // Get dimensions of label
       const dim = label.getBBox();
 
-      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      const rect = doc.createElementNS('http://www.w3.org/2000/svg', 'rect');
       rect.setAttribute('rx', 0);
       rect.setAttribute('ry', 0);
       rect.setAttribute('width', dim.width);
@@ -463,6 +367,7 @@ export const draw = function (text, id) {
     }
   }
 
+  addSVGAccessibilityFields(parser.yy, svg, id);
   // If node has a link, wrap it in an anchor SVG object.
   // const keys = Object.keys(classes);
   // keys.forEach(function(key) {
@@ -498,10 +403,12 @@ export const draw = function (text, id) {
   // });
 };
 
-export default {
-  setConf,
-  draw,
-};
+/**
+ * Gets the arrow marker for a type index
+ *
+ * @param {number} type The type to look for
+ * @returns {'aggregation' | 'extension' | 'composition' | 'dependency'} The arrow marker
+ */
 function getArrowMarker(type) {
   let marker;
   switch (type) {
@@ -522,3 +429,8 @@ function getArrowMarker(type) {
   }
   return marker;
 }
+
+export default {
+  setConf,
+  draw,
+};

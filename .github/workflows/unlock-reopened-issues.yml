@@ -1,6 +1,6 @@
 name: Unlock reopened issue
 
-on: 
+on:
   issues:
     types: [reopened]
 

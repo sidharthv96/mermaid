@@ -25,7 +25,7 @@ This means that **you should branch off your pull request from develop** and dir
 We make all changes via Pull Requests. As we have many Pull Requests from developers new to mermaid, we have put in place a process, wherein *knsv, Knut Sveidqvist* is the primary reviewer of changes and merging pull requests. The process is as follows:
 
 * Large changes reviewed by knsv or other developer asked to review by knsv
-* Smaller, low-risk changes like dependecies, documentation, etc. can be merged by active collaborators
+* Smaller, low-risk changes like dependencies, documentation, etc. can be merged by active collaborators
 * Documentation (we encourage updates to the docs folder; you can submit them via direct commits)
 
 When you commit code, create a branch with the following naming convention:
@@ -48,7 +48,7 @@ The docs are located in the `docs` folder and are written in Markdown. Just pick
 
 > **All the documents displayed in the github.io page are listed in [sidebar.md](https://github.com/mermaid-js/mermaid/edit/develop/docs/_sidebar.md)**.
 
-The contents of [https://mermaid-js.github.io/mermaid/](https://mermaid-js.github.io/mermaid/) are based on the docs from the `master` branch. Updates commited to the `master` branch are reflected in the [Mermaid Docs](https://mermaid-js.github.io/mermaid/) once released.
+The contents of [https://mermaid-js.github.io/mermaid/](https://mermaid-js.github.io/mermaid/) are based on the docs from the `master` branch. Updates committed to the `master` branch are reflected in the [Mermaid Docs](https://mermaid-js.github.io/mermaid/) once released.
 
 ## How to Contribute to Documentation
 
@@ -64,7 +64,7 @@ This is important so that, if someone that does not know about this great featur
 
 ### Add E2E Tests
 
-This tests the rendering and visual apearance of the diagrams. This ensures that the rendering of that feature in the e2e will be reviewed in the release process going forward. Less chance that it breaks!
+This tests the rendering and visual appearance of the diagrams. This ensures that the rendering of that feature in the e2e will be reviewed in the release process going forward. Less chance that it breaks!
 
 To start working with the e2e tests:
 
@@ -78,10 +78,10 @@ When running in CI it will take a snapshot of the rendered diagram and compare i
 
 This is what a rendering test looks like:
 
-```
-  it('should render forks and joins', () => {
+```js
+it('should render forks and joins', () => {
     imgSnapshotTest(
-      `
+        `
     stateDiagram
     state fork_state &lt;&lt;fork&gt;&gt;
       [*] --> fork_state
@@ -94,10 +94,10 @@ This is what a rendering test looks like:
       join_state --> State4
       State4 --> [*]
     `,
-      { logLevel: 0 }
+        { logLevel: 0 }
     );
     cy.get('svg');
-  });
+});
 ```
 
 ### Any Questions or Suggestions?

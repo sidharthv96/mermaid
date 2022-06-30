@@ -6,7 +6,9 @@ import intersect from './intersect/index.js';
 import createLabel from './createLabel';
 import note from './shapes/note';
 import { parseMember } from '../diagrams/class/svgDraw';
-import { evaluate } from '../diagrams/common/common';
+import { evaluate, sanitizeText as sanitize } from '../diagrams/common/common';
+
+const sanitizeText = (txt) => sanitize(txt, getConfig());
 
 const question = (parent, node) => {
   const { shapeSvg, bbox } = labelHelper(parent, node, undefined, true);
@@ -313,6 +315,8 @@ const rect = (parent, node) => {
   // add the rect
   const rect = shapeSvg.insert('rect', ':first-child');
 
+  const totalWidth = bbox.width + node.padding;
+  const totalHeight = bbox.height + node.padding;
   rect
     .attr('class', 'basic label-container')
     .attr('style', node.style)
@@ -320,8 +324,19 @@ const rect = (parent, node) => {
     .attr('ry', node.ry)
     .attr('x', -bbox.width / 2 - halfPadding)
     .attr('y', -bbox.height / 2 - halfPadding)
-    .attr('width', bbox.width + node.padding)
-    .attr('height', bbox.height + node.padding);
+    .attr('width', totalWidth)
+    .attr('height', totalHeight);
+
+  if (node.props) {
+    const propKeys = new Set(Object.keys(node.props));
+    if (node.props.borders) {
+      applyNodePropertyBorders(rect, node.props.borders, totalWidth, totalHeight);
+      propKeys.delete('borders');
+    }
+    propKeys.forEach((propKey) => {
+      log.warn(`Unknown node property ${propKey}`);
+    });
+  }
 
   updateNodeBounds(node, rect);
 
@@ -331,6 +346,82 @@ const rect = (parent, node) => {
 
   return shapeSvg;
 };
+
+const labelRect = (parent, node) => {
+  const { shapeSvg, bbox, halfPadding } = labelHelper(parent, node, 'label', true);
+
+  log.trace('Classes = ', node.classes);
+  // add the rect
+  const rect = shapeSvg.insert('rect', ':first-child');
+
+  // Hide the rect we are only after the label
+  const totalWidth = 0;
+  const totalHeight = 0;
+  rect.attr('width', totalWidth).attr('height', totalHeight);
+  shapeSvg.attr('class', 'label edgeLabel');
+
+  if (node.props) {
+    const propKeys = new Set(Object.keys(node.props));
+    if (node.props.borders) {
+      applyNodePropertyBorders(rect, node.props.borders, totalWidth, totalHeight);
+      propKeys.delete('borders');
+    }
+    propKeys.forEach((propKey) => {
+      log.warn(`Unknown node property ${propKey}`);
+    });
+  }
+
+  updateNodeBounds(node, rect);
+
+  node.intersect = function (point) {
+    return intersect.rect(node, point);
+  };
+
+  return shapeSvg;
+};
+
+/**
+ * @param rect
+ * @param borders
+ * @param totalWidth
+ * @param totalHeight
+ */
+function applyNodePropertyBorders(rect, borders, totalWidth, totalHeight) {
+  const strokeDashArray = [];
+  const addBorder = (length) => {
+    strokeDashArray.push(length);
+    strokeDashArray.push(0);
+  };
+  const skipBorder = (length) => {
+    strokeDashArray.push(0);
+    strokeDashArray.push(length);
+  };
+  if (borders.includes('t')) {
+    log.debug('add top border');
+    addBorder(totalWidth);
+  } else {
+    skipBorder(totalWidth);
+  }
+  if (borders.includes('r')) {
+    log.debug('add right border');
+    addBorder(totalHeight);
+  } else {
+    skipBorder(totalHeight);
+  }
+  if (borders.includes('b')) {
+    log.debug('add bottom border');
+    addBorder(totalWidth);
+  } else {
+    skipBorder(totalWidth);
+  }
+  if (borders.includes('l')) {
+    log.debug('add left border');
+    addBorder(totalHeight);
+  } else {
+    skipBorder(totalHeight);
+  }
+  rect.attr('stroke-dasharray', strokeDashArray.join(' '));
+}
 
 const rectWithTitle = (parent, node) => {
   // const { shapeSvg, bbox, halfPadding } = labelHelper(parent, node, 'node ' + node.classes);
@@ -366,7 +457,7 @@ const rectWithTitle = (parent, node) => {
   log.info('Label text abc79', title, text2, typeof text2 === 'object');
 
   const text = label.node().appendChild(createLabel(title, node.labelStyle, true, true));
-  let bbox;
+  let bbox = { width: 0, height: 0 };
   if (evaluate(getConfig().flowchart.htmlLabels)) {
     const div = text.children[0];
     const dv = select(text);
@@ -491,6 +582,42 @@ const circle = (parent, node) => {
   node.intersect = function (point) {
     log.info('Circle intersect', node, bbox.width / 2 + halfPadding, point);
     return intersect.circle(node, bbox.width / 2 + halfPadding, point);
+  };
+
+  return shapeSvg;
+};
+
+const doublecircle = (parent, node) => {
+  const { shapeSvg, bbox, halfPadding } = labelHelper(parent, node, undefined, true);
+  const gap = 5;
+  const circleGroup = shapeSvg.insert('g', ':first-child');
+  const outerCircle = circleGroup.insert('circle');
+  const innerCircle = circleGroup.insert('circle');
+
+  // center the circle around its coordinate
+  outerCircle
+    .attr('style', node.style)
+    .attr('rx', node.rx)
+    .attr('ry', node.ry)
+    .attr('r', bbox.width / 2 + halfPadding + gap)
+    .attr('width', bbox.width + node.padding + gap * 2)
+    .attr('height', bbox.height + node.padding + gap * 2);
+
+  innerCircle
+    .attr('style', node.style)
+    .attr('rx', node.rx)
+    .attr('ry', node.ry)
+    .attr('r', bbox.width / 2 + halfPadding)
+    .attr('width', bbox.width + node.padding)
+    .attr('height', bbox.height + node.padding);
+
+  log.info('DoubleCircle main');
+
+  updateNodeBounds(node, outerCircle);
+
+  node.intersect = function (point) {
+    log.info('DoubleCircle intersect', node, bbox.width / 2 + halfPadding + gap, point);
+    return intersect.circle(node, bbox.width / 2 + halfPadding + gap, point);
   };
 
   return shapeSvg;
@@ -750,7 +877,7 @@ const class_box = (parent, node) => {
     );
     verticalPos = interfaceBBox.height + rowPadding;
   }
-  // Positin the class title label
+  // Position the class title label
   let diffX = (maxWidth - classTitleBBox.width) / 2;
   select(classTitleLabel).attr(
     'transform',
@@ -882,9 +1009,11 @@ const class_box = (parent, node) => {
 const shapes = {
   question,
   rect,
+  labelRect,
   rectWithTitle,
   choice,
   circle,
+  doublecircle,
   stadium,
   hexagon,
   rect_left_inv_arrow,
@@ -911,10 +1040,13 @@ export const insertNode = (elem, node, dir) => {
 
   // Add link when appropriate
   if (node.link) {
-    newEl = elem
-      .insert('svg:a')
-      .attr('xlink:href', node.link)
-      .attr('target', node.linkTarget || '_blank');
+    let target;
+    if (getConfig().securityLevel === 'sandbox') {
+      target = '_top';
+    } else if (node.linkTarget) {
+      target = node.linkTarget || '_blank';
+    }
+    newEl = elem.insert('svg:a').attr('xlink:href', node.link).attr('target', target);
     el = shapes[node.shape](newEl, node, dir);
   } else {
     el = shapes[node.shape](elem, node, dir);
