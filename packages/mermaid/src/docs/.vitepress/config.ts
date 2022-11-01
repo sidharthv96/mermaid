@@ -27,6 +27,12 @@ export default defineConfig({
     sidebar: {
       '/': sidebarAll(),
     },
+
+    algolia: {
+      appId: 'P5Q8E1Y5XZ',
+      apiKey: '5e2328a3e65fa58b7a44272541da5543',
+      indexName: 'mermaid',
+    },
   },
 });
 
