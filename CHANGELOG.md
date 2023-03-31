@@ -1,6 +1,6 @@
 # Change Log
 
-// TODO: Populate changelog
+// TODO: Populate changelog!
 
 - Config has a lot of changes
 - globalReset resets to `defaultConfig` instead of current config. Use `reset` instead.
