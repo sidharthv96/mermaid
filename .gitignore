@@ -46,3 +46,6 @@ generated/
 
 .pnpm-store
 .nyc_output
+
+demos/dev/**
+!/demos/dev/example.html
